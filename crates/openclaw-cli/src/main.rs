@@ -25,6 +25,14 @@ enum Commands {
     Sign {
         /// Path to the file to sign
         path: String,
+
+        /// Add metadata key=value pairs (can be specified multiple times)
+        #[arg(short, long = "meta", value_name = "KEY=VALUE")]
+        meta: Vec<String>,
+
+        /// Preview envelope without writing to disk
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Verify a signature
     Verify {
@@ -66,7 +74,7 @@ fn main() {
 
     let result = match cli.command {
         Commands::Identity { action } => handle_identity(action),
-        Commands::Sign { path } => handle_sign(&path),
+        Commands::Sign { path, meta, dry_run } => handle_sign(&path, meta, dry_run),
         Commands::Verify { path } => handle_verify(&path),
         Commands::Manifest { action } => handle_manifest(action),
     };
@@ -96,8 +104,71 @@ fn handle_identity(action: IdentityAction) -> anyhow::Result<()> {
     }
 }
 
-fn handle_sign(path: &str) -> anyhow::Result<()> {
-    println!("Sign placeholder: {}", path);
+fn handle_sign(path: &str, meta: Vec<String>, dry_run: bool) -> anyhow::Result<()> {
+    use std::path::Path;
+
+    // Load identity from ~/.openclaw/identity/
+    let identity = keystore::load_identity_info()?;
+
+    // Prompt for passphrase and decrypt private key
+    let passphrase = keystore::prompt_passphrase_single()?;
+    let signing_key = keystore::load_signing_key(&passphrase)?;
+
+    // Read file bytes
+    let file_path = Path::new(path);
+    let file_bytes = std::fs::read(file_path)
+        .map_err(|e| anyhow::anyhow!("Failed to read '{}': {}", path, e))?;
+
+    let filename = file_path
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| path.to_string());
+
+    // Get current timestamp (ISO 8601)
+    let timestamp = keystore::chrono_iso8601_now();
+
+    // Parse metadata if provided
+    let metadata = if meta.is_empty() {
+        None
+    } else {
+        Some(metadata::parse_metadata(meta)?)
+    };
+
+    // Call sign_artifact from openclaw-crypto
+    let envelope = openclaw_crypto::sign_artifact(
+        &signing_key,
+        identity.did.clone(),
+        filename,
+        &file_bytes,
+        timestamp,
+        metadata,
+    )?;
+
+    if dry_run {
+        // Output envelope to stdout (handled in US-002E)
+        let json = serde_json::to_string_pretty(&envelope)?;
+        println!("{}", json);
+    } else {
+        // Write envelope to file (handled in US-002D)
+        let output_path = format!("{}.sig.json", path);
+        let json = serde_json::to_string_pretty(&envelope)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::write(&output_path, &json)?;
+            std::fs::set_permissions(&output_path, std::fs::Permissions::from_mode(0o644))?;
+        }
+
+        #[cfg(not(unix))]
+        {
+            std::fs::write(&output_path, &json)?;
+        }
+
+        println!("Signature written to: {}", output_path);
+        println!("Signer: {}", identity.did);
+    }
+
     Ok(())
 }
 

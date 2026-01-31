@@ -284,8 +284,73 @@ pub fn init_identity(force: bool) -> Result<String> {
     Ok(did)
 }
 
+/// Loads the identity info from disk.
+pub fn load_identity_info() -> Result<IdentityInfo> {
+    let identity_path = identity_dir()?;
+    let identity_json_path = identity_path.join("identity.json");
+
+    if !identity_json_path.exists() {
+        anyhow::bail!(
+            "No identity found. Run 'openclaw identity init' first."
+        );
+    }
+
+    let json_content = fs::read_to_string(&identity_json_path)
+        .with_context(|| format!("Failed to read {}", identity_json_path.display()))?;
+
+    let identity: IdentityInfo = serde_json::from_str(&json_content)
+        .context("Failed to parse identity.json")?;
+
+    Ok(identity)
+}
+
+/// Loads and decrypts the signing key from disk.
+///
+/// # Arguments
+/// * `passphrase` - The passphrase to decrypt the private key
+///
+/// # Returns
+/// The decrypted SigningKey, or error if decryption fails
+pub fn load_signing_key(passphrase: &str) -> Result<ed25519_dalek::SigningKey> {
+    let identity_path = identity_dir()?;
+    let key_enc_path = identity_path.join("root.key.enc");
+
+    if !key_enc_path.exists() {
+        anyhow::bail!(
+            "No identity found. Run 'openclaw identity init' first."
+        );
+    }
+
+    // Check permissions before reading
+    #[cfg(unix)]
+    check_permissions(&key_enc_path, false)?;
+
+    let encrypted = fs::read(&key_enc_path)
+        .with_context(|| format!("Failed to read {}", key_enc_path.display()))?;
+
+    let decrypted = decrypt_key(&encrypted, passphrase)?;
+
+    let key_bytes: [u8; 32] = decrypted
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("Invalid key length: expected 32 bytes"))?;
+
+    Ok(ed25519_dalek::SigningKey::from_bytes(&key_bytes))
+}
+
+/// Prompts for passphrase (single entry, no confirmation)
+pub fn prompt_passphrase_single() -> Result<String> {
+    let passphrase = rpassword::prompt_password("Enter passphrase: ")
+        .context("Failed to read passphrase")?;
+
+    if passphrase.is_empty() {
+        anyhow::bail!("Passphrase cannot be empty");
+    }
+
+    Ok(passphrase)
+}
+
 /// Returns current time as ISO 8601 string
-fn chrono_iso8601_now() -> String {
+pub fn chrono_iso8601_now() -> String {
     // Use simple time formatting without external chrono dependency
     use std::time::{SystemTime, UNIX_EPOCH};
 

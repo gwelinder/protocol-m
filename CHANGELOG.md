@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-001P: Added integration test for golden vector (tests/golden.rs with 6 validation tests)
 - US-002A: Implemented envelope signing logic (sign_artifact function in sign.rs)
 - US-002B: Added metadata parsing for --meta flag (parse_metadata with dot notation support)
+- US-002C: Implemented sign command handler (--meta and --dry-run flags, identity loading, signing)
+- US-002D: Implemented signature output in normal mode (<file>.sig.json with 0644 perms)
+- US-002E: Implemented signature output in dry-run mode (JSON to stdout)
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
