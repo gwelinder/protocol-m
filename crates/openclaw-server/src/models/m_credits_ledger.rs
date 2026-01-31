@@ -21,6 +21,10 @@ pub enum MCreditsEventType {
     Hold,
     /// Credits released from hold.
     Release,
+    /// Promotional credits created (separate from transferable balance).
+    #[serde(rename = "promo_mint")]
+    #[sqlx(rename = "promo_mint")]
+    PromoMint,
 }
 
 /// Represents an immutable ledger entry for M-credit transactions.
@@ -106,6 +110,17 @@ impl NewMCreditsLedger {
     pub fn release(to_did: String, amount: BigDecimal, metadata: serde_json::Value) -> Self {
         Self {
             event_type: MCreditsEventType::Release,
+            from_did: None,
+            to_did: Some(to_did),
+            amount,
+            metadata,
+        }
+    }
+
+    /// Create a new promo mint event (promotional credits to promo_balance).
+    pub fn promo_mint(to_did: String, amount: BigDecimal, metadata: serde_json::Value) -> Self {
+        Self {
+            event_type: MCreditsEventType::PromoMint,
             from_did: None,
             to_did: Some(to_did),
             amount,
@@ -231,5 +246,42 @@ mod tests {
         assert_eq!(event.event_type, MCreditsEventType::Release);
         assert!(event.from_did.is_none());
         assert_eq!(event.to_did, Some("did:key:z6MkHolder".to_string()));
+    }
+
+    #[test]
+    fn test_promo_mint_event_type_serialization() {
+        assert_eq!(
+            serde_json::to_string(&MCreditsEventType::PromoMint).unwrap(),
+            "\"promo_mint\""
+        );
+    }
+
+    #[test]
+    fn test_promo_mint_event_type_deserialization() {
+        assert_eq!(
+            serde_json::from_str::<MCreditsEventType>("\"promo_mint\"").unwrap(),
+            MCreditsEventType::PromoMint
+        );
+    }
+
+    #[test]
+    fn test_new_promo_mint_event() {
+        let amount = BigDecimal::from_str("50.00000000").unwrap();
+        let metadata = json!({
+            "reason": "new_user_bonus",
+            "expires_at": "2026-02-28T23:59:59Z"
+        });
+        let event = NewMCreditsLedger::promo_mint(
+            "did:key:z6MkRecipient".to_string(),
+            amount.clone(),
+            metadata.clone(),
+        );
+
+        assert_eq!(event.event_type, MCreditsEventType::PromoMint);
+        assert!(event.from_did.is_none());
+        assert_eq!(event.to_did, Some("did:key:z6MkRecipient".to_string()));
+        assert_eq!(event.amount, amount);
+        assert_eq!(event.metadata["reason"], "new_user_bonus");
+        assert!(event.metadata.get("expires_at").is_some());
     }
 }

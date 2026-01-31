@@ -29,6 +29,9 @@ const MIN_PURCHASE_USD: &str = "1.00";
 /// Maximum purchase amount in USD.
 const MAX_PURCHASE_USD: &str = "10000.00";
 
+/// Maximum promo credits per DID (lifetime limit).
+const MAX_PROMO_CREDITS_PER_DID: &str = "100.00000000";
+
 /// Request body for purchasing credits.
 /// Note: In a real implementation, the user_id would come from authentication.
 #[derive(Debug, Deserialize)]
@@ -68,6 +71,7 @@ pub fn router(pool: PgPool) -> Router {
     Router::new()
         .route("/purchase", post(purchase_credits))
         .route("/webhook/stripe", post(handle_stripe_webhook))
+        .route("/grant-promo", post(grant_promo_credits_handler))
         .with_state(pool)
 }
 
@@ -574,6 +578,193 @@ async fn handle_stripe_webhook(
     }
 }
 
+// ===== Promo Credit Grants (US-012F) =====
+
+/// Request body for granting promotional credits.
+/// Note: This is an admin endpoint - in production, it would require admin authentication.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GrantPromoCreditsRequest {
+    /// The DID to grant promo credits to.
+    pub did: String,
+    /// Amount of promo credits to grant.
+    pub amount: String,
+    /// Reason for the grant (e.g., "new_user_bonus", "referral_reward").
+    pub reason: String,
+    /// Optional expiry timestamp for the promo credits (ISO 8601 format).
+    #[serde(default)]
+    pub expires_at: Option<String>,
+}
+
+/// Response for successful promo credit grant.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GrantPromoCreditsResponse {
+    /// Whether the grant was successful.
+    pub success: bool,
+    /// The DID that received the credits.
+    pub did: String,
+    /// Amount of promo credits granted.
+    pub amount_granted: String,
+    /// New total promo balance for this DID.
+    pub new_promo_balance: String,
+    /// Ledger entry ID for the grant.
+    pub ledger_id: Uuid,
+}
+
+/// Validates the DID format.
+fn validate_did_format(did: &str) -> Result<(), AppError> {
+    if !did.starts_with("did:key:z") {
+        return Err(AppError::BadRequest(
+            "Invalid DID format. Expected did:key:z... format.".to_string(),
+        ));
+    }
+    if did.len() < 20 {
+        return Err(AppError::BadRequest(
+            "Invalid DID format. DID is too short.".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Gets the current total promo credits granted to a DID from the ledger.
+async fn get_total_promo_credits_for_did(pool: &PgPool, did: &str) -> Result<BigDecimal, AppError> {
+    let total: Option<BigDecimal> = sqlx::query_scalar(
+        r#"
+        SELECT COALESCE(SUM(amount), 0)
+        FROM m_credits_ledger
+        WHERE to_did = $1 AND event_type = 'promo_mint'
+        "#,
+    )
+    .bind(did)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query promo credits: {}", e)))?;
+
+    Ok(total.unwrap_or_else(|| BigDecimal::from(0)))
+}
+
+/// Grants promotional credits to a DID.
+///
+/// This function:
+/// 1. Validates the DID format
+/// 2. Checks the max promo credits limit (100 per DID lifetime)
+/// 3. Inserts a promo_mint event into the ledger
+/// 4. Updates the promo_balance in m_credits_accounts
+///
+/// Returns the ledger entry ID and new promo balance.
+async fn grant_promo_credits(
+    pool: &PgPool,
+    did: &str,
+    amount: &BigDecimal,
+    reason: &str,
+    expires_at: Option<&str>,
+) -> Result<(Uuid, BigDecimal), AppError> {
+    // Validate amount is positive
+    if amount <= &BigDecimal::from(0) {
+        return Err(AppError::BadRequest(
+            "Promo credit amount must be positive".to_string(),
+        ));
+    }
+
+    // Check max promo credits limit
+    let max_promo = BigDecimal::from_str(MAX_PROMO_CREDITS_PER_DID).unwrap();
+    let current_total = get_total_promo_credits_for_did(pool, did).await?;
+    let new_total = &current_total + amount;
+
+    if new_total > max_promo {
+        let remaining = &max_promo - &current_total;
+        return Err(AppError::BadRequest(format!(
+            "Promo credit limit exceeded. DID has {} promo credits, limit is {}. Max additional: {}",
+            current_total, max_promo, remaining
+        )));
+    }
+
+    // Build metadata
+    let mut metadata = json!({
+        "reason": reason,
+        "grant_type": "promo"
+    });
+    if let Some(expiry) = expires_at {
+        metadata["expires_at"] = json!(expiry);
+    }
+
+    // Create promo_mint event
+    let ledger_entry = NewMCreditsLedger::promo_mint(did.to_string(), amount.clone(), metadata);
+
+    // Insert ledger entry
+    let ledger_id: Uuid = sqlx::query_scalar(
+        r#"
+        INSERT INTO m_credits_ledger (event_type, from_did, to_did, amount, metadata)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id
+        "#,
+    )
+    .bind(ledger_entry.event_type)
+    .bind(&ledger_entry.from_did)
+    .bind(&ledger_entry.to_did)
+    .bind(&ledger_entry.amount)
+    .bind(&ledger_entry.metadata)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to insert ledger entry: {}", e)))?;
+
+    // Upsert account promo_balance atomically
+    let new_promo_balance: BigDecimal = sqlx::query_scalar(
+        r#"
+        INSERT INTO m_credits_accounts (did, balance, promo_balance)
+        VALUES ($1, 0, $2)
+        ON CONFLICT (did)
+        DO UPDATE SET promo_balance = m_credits_accounts.promo_balance + $2
+        RETURNING promo_balance
+        "#,
+    )
+    .bind(did)
+    .bind(amount)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to update promo balance: {}", e)))?;
+
+    Ok((ledger_id, new_promo_balance))
+}
+
+/// POST /api/v1/credits/grant-promo
+///
+/// Admin endpoint to grant promotional credits to a DID.
+/// Enforces a maximum of 100 promo credits per DID (lifetime limit).
+///
+/// In production, this endpoint would require admin authentication.
+async fn grant_promo_credits_handler(
+    State(pool): State<PgPool>,
+    Json(request): Json<GrantPromoCreditsRequest>,
+) -> Result<Json<GrantPromoCreditsResponse>, AppError> {
+    // Step 1: Validate DID format
+    validate_did_format(&request.did)?;
+
+    // Step 2: Parse and validate amount
+    let amount = BigDecimal::from_str(&request.amount).map_err(|e| {
+        AppError::BadRequest(format!("Invalid amount format: {}", e))
+    })?;
+
+    // Step 3: Grant the promo credits
+    let (ledger_id, new_promo_balance) = grant_promo_credits(
+        &pool,
+        &request.did,
+        &amount,
+        &request.reason,
+        request.expires_at.as_deref(),
+    )
+    .await?;
+
+    Ok(Json(GrantPromoCreditsResponse {
+        success: true,
+        did: request.did,
+        amount_granted: amount.to_string(),
+        new_promo_balance: new_promo_balance.to_string(),
+        ledger_id,
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1029,6 +1220,116 @@ mod tests {
         assert_ne!(
             StripeEventType::CheckoutSessionCompleted,
             StripeEventType::CheckoutSessionExpired
+        );
+    }
+
+    // ===== Promo Credit Tests (US-012F) =====
+
+    #[test]
+    fn test_validate_did_format_valid() {
+        let result = validate_did_format("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_did_format_invalid_prefix() {
+        let result = validate_did_format("did:web:example.com");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid DID format"));
+    }
+
+    #[test]
+    fn test_validate_did_format_too_short() {
+        let result = validate_did_format("did:key:z6Mk");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("too short"));
+    }
+
+    #[test]
+    fn test_validate_did_format_empty() {
+        let result = validate_did_format("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_grant_promo_request_deserialization() {
+        let json = r#"{
+            "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+            "amount": "50.00000000",
+            "reason": "new_user_bonus"
+        }"#;
+
+        let request: GrantPromoCreditsRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(request.did, "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK");
+        assert_eq!(request.amount, "50.00000000");
+        assert_eq!(request.reason, "new_user_bonus");
+        assert!(request.expires_at.is_none());
+    }
+
+    #[test]
+    fn test_grant_promo_request_with_expiry() {
+        let json = r#"{
+            "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+            "amount": "25.00000000",
+            "reason": "referral_reward",
+            "expiresAt": "2026-03-31T23:59:59Z"
+        }"#;
+
+        let request: GrantPromoCreditsRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(request.expires_at, Some("2026-03-31T23:59:59Z".to_string()));
+    }
+
+    #[test]
+    fn test_grant_promo_response_serialization() {
+        let ledger_id = Uuid::new_v4();
+        let response = GrantPromoCreditsResponse {
+            success: true,
+            did: "did:key:z6MkTest".to_string(),
+            amount_granted: "50.00000000".to_string(),
+            new_promo_balance: "50.00000000".to_string(),
+            ledger_id,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"success\":true"));
+        assert!(json.contains("\"did\":\"did:key:z6MkTest\""));
+        assert!(json.contains("\"amountGranted\":\"50.00000000\""));
+        assert!(json.contains("\"newPromoBalance\":\"50.00000000\""));
+        assert!(json.contains("\"ledgerId\":"));
+    }
+
+    #[test]
+    fn test_max_promo_credits_constant() {
+        let max = BigDecimal::from_str(MAX_PROMO_CREDITS_PER_DID).unwrap();
+        assert_eq!(max, BigDecimal::from_str("100.00000000").unwrap());
+    }
+
+    #[test]
+    fn test_new_m_credits_ledger_promo_mint() {
+        let amount = BigDecimal::from_str("50.00000000").unwrap();
+        let metadata = json!({
+            "reason": "new_user_bonus",
+            "expires_at": "2026-02-28T23:59:59Z"
+        });
+
+        let entry = NewMCreditsLedger::promo_mint(
+            "did:key:z6MkTest".to_string(),
+            amount.clone(),
+            metadata.clone(),
+        );
+
+        assert_eq!(entry.event_type, MCreditsEventType::PromoMint);
+        assert!(entry.from_did.is_none());
+        assert_eq!(entry.to_did, Some("did:key:z6MkTest".to_string()));
+        assert_eq!(entry.amount, amount);
+        assert_eq!(entry.metadata["reason"], "new_user_bonus");
+    }
+
+    #[test]
+    fn test_promo_mint_event_type() {
+        assert_eq!(
+            serde_json::to_string(&MCreditsEventType::PromoMint).unwrap(),
+            "\"promo_mint\""
         );
     }
 }
