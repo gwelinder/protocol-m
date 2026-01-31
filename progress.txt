@@ -1059,3 +1059,22 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - ResolutionOutcome enum: UpholdSubmission or RejectSubmission (for US-016F-R)
   - 374 total tests pass (16 new dispute tests)
 ---
+
+## 2026-01-31 - US-016F-R
+- What was implemented: Dispute resolution endpoint for closing disputes with arbiter decision
+- Files changed:
+  - `crates/openclaw-server/src/routes/disputes.rs` - New module with POST /api/v1/disputes/{id}/resolve endpoint
+  - `crates/openclaw-server/src/routes/mod.rs` - Added disputes module and route nesting
+  - `crates/openclaw-server/src/error.rs` - Added Forbidden error variant for 403 responses
+- **Learnings for future iterations:**
+  - Created dedicated disputes.rs routes module for dispute resolution (separate from bounties.rs dispute creation)
+  - UpholdSubmission outcome: slash initiator stake (burn), release bounty escrow to submitter, penalize initiator reputation
+  - RejectSubmission outcome: return stake to initiator, return escrow to poster, penalize submitter reputation, reward initiator
+  - Reputation penalty rate is 50% of base reputation (DISPUTE_REPUTATION_PENALTY_RATE = 0.5)
+  - Use GREATEST(total_rep - penalty, 0) to prevent reputation going negative
+  - Winner of valid dispute gets 10% of base rep as reward for correct challenge
+  - Bounty status updates: upheld -> completed, rejected -> cancelled
+  - Added Forbidden (403) error variant for proper authorization errors vs BadRequest (400)
+  - Escrow may already be released from auto-approval, handle case gracefully with clear error
+  - 392 server tests pass (18 new dispute resolution tests), 466 total tests across all crates
+---

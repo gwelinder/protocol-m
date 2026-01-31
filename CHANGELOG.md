@@ -436,6 +436,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CreateDisputeRequest/Response types with camelCase JSON serialization
   - 16 new unit tests for dispute validation and serialization
   - 374 total server tests pass
+- US-016F-R: Implemented dispute resolution endpoint:
+  - POST /api/v1/disputes/{id}/resolve endpoint for closing disputes with arbiter decision
+  - New disputes.rs routes module for dispute resolution (separate from bounties.rs creation)
+  - ResolveDisputeRequest/Response types with outcome parsing and resolution details
+  - UpholdSubmission outcome: slash initiator stake (burn), release escrow to submitter, penalize initiator reputation
+  - RejectSubmission outcome: return stake to initiator, return escrow to poster, penalize submitter reputation, reward initiator
+  - Reputation penalty rate: 50% of base reputation for dispute losers
+  - Reputation reward: 10% of base reputation for valid dispute initiators
+  - Bounty status updates: upheld -> completed, rejected -> cancelled
+  - Added Forbidden (403) error variant to AppError for proper authorization errors
+  - 18 new unit tests for dispute resolution
+  - 392 total server tests pass
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

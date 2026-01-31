@@ -1328,8 +1328,8 @@
         "Typecheck passes"
       ],
       "priority": 80,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created POST /api/v1/disputes/{id}/resolve endpoint in new disputes.rs routes module; ResolveDisputeRequest/Response types with outcome parsing; UpholdSubmission slashes initiator stake and releases escrow to submitter; RejectSubmission returns stake to initiator and escrow to poster; reputation penalties (50% of base rep) applied to dispute losers; dispute winners get small reputation reward; added Forbidden error variant; 18 new unit tests; 392 server tests pass; typecheck passes"
     },
     {
       "id": "US-017A",

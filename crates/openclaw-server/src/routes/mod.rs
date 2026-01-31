@@ -3,6 +3,7 @@
 pub mod artifacts;
 pub mod bounties;
 pub mod credits;
+pub mod disputes;
 pub mod identity;
 pub mod posts;
 pub mod profile;
@@ -22,6 +23,7 @@ fn api_v1_routes(pool: PgPool) -> Router {
         .nest("/artifacts", artifacts::router(pool.clone()))
         .nest("/bounties", bounties::router(pool.clone()))
         .nest("/credits", credits::router(pool.clone()))
+        .nest("/disputes", disputes::router(pool.clone()))
         .nest("/identity", identity::router(pool.clone()))
         .nest("/posts", posts::router(pool.clone()))
         .nest("/profile", profile::router(pool))
