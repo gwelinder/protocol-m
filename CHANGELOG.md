@@ -272,6 +272,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Bounty record creation with status=open
   - Returns bounty_id, escrow_id, ledger_id on success
   - 35 unit tests for validation, serialization, and balance checks
+- US-014A: Created bounty_submissions table for work submission tracking:
+  - Migration 20260131000013 with submission_status enum (pending, approved, rejected)
+  - bounty_submissions table with bounty_id FK, submitter_did, artifact_hash, signature_envelope JSONB
+  - Optional execution_receipt JSONB for test-based bounty verification
+  - Indexes on bounty_id, submitter_did, status, plus composite index for pending submissions
+  - BountySubmission, NewBountySubmission, SubmissionStatus Rust model structs
+  - Factory methods: with_execution_receipt, without_execution_receipt
+  - Helper methods: is_pending, is_approved, is_rejected, has_execution_receipt
+  - Execution receipt helpers: execution_harness_hash, all_tests_passed, test_results
+  - 8 unit tests for serialization, status helpers, and execution receipt extraction
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

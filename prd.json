@@ -1095,8 +1095,8 @@
         "Typecheck passes"
       ],
       "priority": 66,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000013 with submission_status enum (pending, approved, rejected), bounty_submissions table with FK to bounties, indexes on bounty_id/submitter_did/status, composite index for pending submissions; BountySubmission/NewBountySubmission/SubmissionStatus models with factory methods and execution receipt helpers; 8 unit tests; 227 total tests pass"
     },
     {
       "id": "US-014B",

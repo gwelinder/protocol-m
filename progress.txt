@@ -855,3 +855,17 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - NewMCreditsLedger::hold creates hold event with from_did (the holder) and to_did = None
   - 220 total tests pass (35 new bounties tests in routes/bounties.rs)
 ---
+
+## 2026-01-31 - US-014A
+- What was implemented: Created bounty_submissions table and BountySubmission models for work submission tracking
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000013_create_bounty_submissions_table.sql` - Migration with submission_status enum, bounty_submissions table, indexes
+  - `crates/openclaw-server/src/models/bounty_submission.rs` - BountySubmission, NewBountySubmission, SubmissionStatus models with helpers
+  - `crates/openclaw-server/src/models.rs` - Added bounty_submission module and re-exports
+- **Learnings for future iterations:**
+  - submission_status enum has three values: pending, approved, rejected
+  - execution_receipt JSONB is nullable for non-test-based bounties
+  - Helper methods for execution receipt extraction: execution_harness_hash(), all_tests_passed(), test_results()
+  - Composite index on (bounty_id, created_at DESC) WHERE status = 'pending' optimizes pending submission queries
+  - 227 total tests pass (219 server + 43 crypto + 6 golden + 4 roundtrip + 19 CLI + 2 doctests + 5 ignored)
+---
