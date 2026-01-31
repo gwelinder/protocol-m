@@ -2,6 +2,7 @@
 
 pub mod artifacts;
 pub mod identity;
+pub mod profile;
 
 use axum::Router;
 use sqlx::PgPool;
@@ -15,5 +16,6 @@ pub fn create_router(pool: PgPool) -> Router {
 fn api_v1_routes(pool: PgPool) -> Router {
     Router::new()
         .nest("/artifacts", artifacts::router(pool.clone()))
-        .nest("/identity", identity::router(pool))
+        .nest("/identity", identity::router(pool.clone()))
+        .nest("/profile", profile::router(pool))
 }
