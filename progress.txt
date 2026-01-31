@@ -1023,3 +1023,21 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - Add empty state specifically for "no matches" with clear filters button
   - TypeScript typecheck passes in web/ directory
 ---
+
+## 2026-01-31 - US-016D
+- What was implemented: Add 'Accept Bounty' action to marketplace
+- Files changed:
+  - `crates/openclaw-server/src/routes/bounties.rs` - Added POST /api/v1/bounties/{id}/accept endpoint with AcceptBountyRequest/Response/SubmissionInstructions types; load_bounty_for_acceptance, set_bounty_in_progress, build_submission_instructions functions; 9 unit tests
+  - `web/src/components/AcceptBountyModal.tsx` - New component with DID binding prompt, confirmation dialog, and submission instructions display
+  - `web/src/components/BountyCard.tsx` - Added Accept Bounty button with onAccept and acceptDisabled props
+  - `web/src/app/marketplace/page.tsx` - Integrated AcceptBountyModal with handleAcceptBounty, handleConfirmAccept callbacks; mock user DID state
+  - `web/src/components/index.ts` - Added exports for AcceptBountyModal, BountyCard
+- **Learnings for future iterations:**
+  - Bounty acceptance requires DID binding check via get_user_bound_did
+  - User cannot accept their own bounty (poster_did != accepter_did check)
+  - Submission instructions vary by closure type (tests requires executionReceipt, quorum/requester don't)
+  - SubmissionInstructions uses skip_serializing_if for optional deadline
+  - Frontend state: mock user DID for development (simulates bound DID after 100ms delay)
+  - AcceptBountyModal manages three states: bind DID prompt, confirmation, and success with instructions
+  - 357 total tests pass (348 server + 9 new accept bounty tests)
+---

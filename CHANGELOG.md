@@ -412,6 +412,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Empty state for no matching bounties with clear filters button
   - Clear all filters button when filters are active
   - TypeScript typecheck passes
+- US-016D: Added 'Accept Bounty' action:
+  - POST /api/v1/bounties/{id}/accept endpoint with DID binding requirement
+  - Validates bounty is open, not expired, and not poster's own bounty
+  - Updates bounty status to in_progress on acceptance
+  - Returns closure-type-specific submission instructions
+  - AcceptBountyModal component with DID binding prompt
+  - BountyCard Accept Bounty button (shown only for open bounties)
+  - Confirmation dialog showing bounty details and user DID
+  - Success state displaying submission endpoint and requirements
+  - 9 new unit tests for accept bounty endpoint
+  - TypeScript typecheck passes
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

@@ -1294,8 +1294,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 78,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added POST /api/v1/bounties/{id}/accept endpoint with DID binding check, status update to in_progress, submission instructions; AcceptBountyModal component with DID binding prompt; BountyCard with Accept Bounty button; 9 new unit tests; 357 total tests pass; typecheck passes"
     },
     {
       "id": "US-016E-R",
