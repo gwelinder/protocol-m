@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { BountyCard, ClosureType, BountyStatus } from '@/components/BountyCard'
 
 /** Bounty data from API */
@@ -21,6 +22,15 @@ interface BountiesResponse {
   bounties: Bounty[]
   total: number
 }
+
+/** Sort options */
+type SortOption = 'newest' | 'reward' | 'ending'
+
+/** Reward range filter options */
+type RewardRange = 'all' | '0-100' | '100-500' | '500-1000' | '1000+'
+
+/** Deadline filter options */
+type DeadlineFilter = 'all' | 'today' | 'week' | 'month' | 'no_deadline'
 
 /**
  * Mock bounties for development/demo purposes.
@@ -90,13 +100,158 @@ const MOCK_BOUNTIES: Bounty[] = [
 ]
 
 /**
- * Marketplace page displaying open bounties.
+ * Parse reward range into min/max values
+ */
+function parseRewardRange(range: RewardRange): { min: number; max: number | null } {
+  switch (range) {
+    case '0-100':
+      return { min: 0, max: 100 }
+    case '100-500':
+      return { min: 100, max: 500 }
+    case '500-1000':
+      return { min: 500, max: 1000 }
+    case '1000+':
+      return { min: 1000, max: null }
+    default:
+      return { min: 0, max: null }
+  }
+}
+
+/**
+ * Check if bounty deadline matches filter
+ */
+function matchesDeadlineFilter(deadline: string | null, filter: DeadlineFilter): boolean {
+  if (filter === 'all') return true
+  if (filter === 'no_deadline') return deadline === null
+
+  if (!deadline) return false
+
+  const deadlineDate = new Date(deadline)
+  const now = new Date()
+  const diffMs = deadlineDate.getTime() - now.getTime()
+  const diffDays = diffMs / (1000 * 60 * 60 * 24)
+
+  switch (filter) {
+    case 'today':
+      return diffDays >= 0 && diffDays < 1
+    case 'week':
+      return diffDays >= 0 && diffDays <= 7
+    case 'month':
+      return diffDays >= 0 && diffDays <= 30
+    default:
+      return true
+  }
+}
+
+/**
+ * Marketplace page displaying open bounties with filters and sorting.
  * Bounties can be browsed by all users.
  */
 export default function MarketplacePage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
   const [bounties, setBounties] = useState<Bounty[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Filter state - initialized from URL params
+  const [search, setSearch] = useState(searchParams.get('q') ?? '')
+  const [closureType, setClosureType] = useState<ClosureType | 'all'>(
+    (searchParams.get('type') as ClosureType | 'all') ?? 'all'
+  )
+  const [rewardRange, setRewardRange] = useState<RewardRange>(
+    (searchParams.get('reward') as RewardRange) ?? 'all'
+  )
+  const [deadlineFilter, setDeadlineFilter] = useState<DeadlineFilter>(
+    (searchParams.get('deadline') as DeadlineFilter) ?? 'all'
+  )
+  const [sortBy, setSortBy] = useState<SortOption>(
+    (searchParams.get('sort') as SortOption) ?? 'newest'
+  )
+
+  // Update URL when filters change
+  const updateUrlParams = useCallback(
+    (params: Record<string, string | null>) => {
+      const newParams = new URLSearchParams(searchParams.toString())
+
+      Object.entries(params).forEach(([key, value]) => {
+        if (value && value !== 'all' && value !== '') {
+          newParams.set(key, value)
+        } else {
+          newParams.delete(key)
+        }
+      })
+
+      // Keep 'newest' as default, don't add to URL
+      if (newParams.get('sort') === 'newest') {
+        newParams.delete('sort')
+      }
+
+      const queryString = newParams.toString()
+      router.push(queryString ? `?${queryString}` : '/marketplace', { scroll: false })
+    },
+    [router, searchParams]
+  )
+
+  // Handle filter changes
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearch(value)
+      updateUrlParams({ q: value || null })
+    },
+    [updateUrlParams]
+  )
+
+  const handleClosureTypeChange = useCallback(
+    (value: ClosureType | 'all') => {
+      setClosureType(value)
+      updateUrlParams({ type: value === 'all' ? null : value })
+    },
+    [updateUrlParams]
+  )
+
+  const handleRewardRangeChange = useCallback(
+    (value: RewardRange) => {
+      setRewardRange(value)
+      updateUrlParams({ reward: value === 'all' ? null : value })
+    },
+    [updateUrlParams]
+  )
+
+  const handleDeadlineFilterChange = useCallback(
+    (value: DeadlineFilter) => {
+      setDeadlineFilter(value)
+      updateUrlParams({ deadline: value === 'all' ? null : value })
+    },
+    [updateUrlParams]
+  )
+
+  const handleSortChange = useCallback(
+    (value: SortOption) => {
+      setSortBy(value)
+      updateUrlParams({ sort: value })
+    },
+    [updateUrlParams]
+  )
+
+  // Clear all filters
+  const clearFilters = useCallback(() => {
+    setSearch('')
+    setClosureType('all')
+    setRewardRange('all')
+    setDeadlineFilter('all')
+    setSortBy('newest')
+    router.push('/marketplace', { scroll: false })
+  }, [router])
+
+  // Check if any filters are active
+  const hasActiveFilters =
+    search !== '' ||
+    closureType !== 'all' ||
+    rewardRange !== 'all' ||
+    deadlineFilter !== 'all' ||
+    sortBy !== 'newest'
 
   useEffect(() => {
     async function fetchBounties() {
@@ -119,6 +274,89 @@ export default function MarketplacePage() {
 
     fetchBounties()
   }, [])
+
+  // Filter and sort bounties
+  const filteredBounties = useMemo(() => {
+    let result = [...bounties]
+
+    // Search filter
+    if (search) {
+      const searchLower = search.toLowerCase()
+      result = result.filter(
+        (b) =>
+          b.title.toLowerCase().includes(searchLower) ||
+          b.description.toLowerCase().includes(searchLower)
+      )
+    }
+
+    // Closure type filter
+    if (closureType !== 'all') {
+      result = result.filter((b) => b.closure_type === closureType)
+    }
+
+    // Reward range filter
+    if (rewardRange !== 'all') {
+      const { min, max } = parseRewardRange(rewardRange)
+      result = result.filter((b) => {
+        const reward = parseFloat(b.reward_credits)
+        if (max === null) {
+          return reward >= min
+        }
+        return reward >= min && reward < max
+      })
+    }
+
+    // Deadline filter
+    if (deadlineFilter !== 'all') {
+      result = result.filter((b) => matchesDeadlineFilter(b.deadline, deadlineFilter))
+    }
+
+    // Sort
+    switch (sortBy) {
+      case 'newest':
+        result.sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        break
+      case 'reward':
+        result.sort((a, b) => parseFloat(b.reward_credits) - parseFloat(a.reward_credits))
+        break
+      case 'ending':
+        result.sort((a, b) => {
+          // Bounties with no deadline go to the end
+          if (!a.deadline && !b.deadline) return 0
+          if (!a.deadline) return 1
+          if (!b.deadline) return -1
+          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+        })
+        break
+    }
+
+    return result
+  }, [bounties, search, closureType, rewardRange, deadlineFilter, sortBy])
+
+  // Styles for filter controls
+  const selectStyle: React.CSSProperties = {
+    padding: '8px 12px',
+    fontSize: '13px',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    backgroundColor: '#ffffff',
+    color: '#374151',
+    cursor: 'pointer',
+    minWidth: '120px',
+  }
+
+  const inputStyle: React.CSSProperties = {
+    padding: '8px 12px',
+    fontSize: '13px',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    backgroundColor: '#ffffff',
+    color: '#374151',
+    flex: 1,
+    minWidth: '200px',
+  }
 
   return (
     <main
@@ -151,6 +389,155 @@ export default function MarketplacePage() {
         </p>
       </header>
 
+      {/* Search and filters */}
+      <div
+        style={{
+          marginBottom: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+        }}
+      >
+        {/* Search bar */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#9ca3af"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                position: 'absolute',
+                left: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+              }}
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search bounties..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              style={{
+                ...inputStyle,
+                paddingLeft: '36px',
+              }}
+              aria-label="Search bounties by title or description"
+            />
+          </div>
+        </div>
+
+        {/* Filter dropdowns */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '12px',
+            alignItems: 'center',
+          }}
+        >
+          {/* Closure type filter */}
+          <select
+            value={closureType}
+            onChange={(e) => handleClosureTypeChange(e.target.value as ClosureType | 'all')}
+            style={selectStyle}
+            aria-label="Filter by closure type"
+          >
+            <option value="all">All Types</option>
+            <option value="tests">Tests</option>
+            <option value="quorum">Quorum</option>
+            <option value="requester">Requester</option>
+          </select>
+
+          {/* Reward range filter */}
+          <select
+            value={rewardRange}
+            onChange={(e) => handleRewardRangeChange(e.target.value as RewardRange)}
+            style={selectStyle}
+            aria-label="Filter by reward range"
+          >
+            <option value="all">All Rewards</option>
+            <option value="0-100">0 - 100 M</option>
+            <option value="100-500">100 - 500 M</option>
+            <option value="500-1000">500 - 1000 M</option>
+            <option value="1000+">1000+ M</option>
+          </select>
+
+          {/* Deadline filter */}
+          <select
+            value={deadlineFilter}
+            onChange={(e) => handleDeadlineFilterChange(e.target.value as DeadlineFilter)}
+            style={selectStyle}
+            aria-label="Filter by deadline"
+          >
+            <option value="all">All Deadlines</option>
+            <option value="today">Ending Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+            <option value="no_deadline">No Deadline</option>
+          </select>
+
+          {/* Sort dropdown */}
+          <select
+            value={sortBy}
+            onChange={(e) => handleSortChange(e.target.value as SortOption)}
+            style={{
+              ...selectStyle,
+              marginLeft: 'auto',
+            }}
+            aria-label="Sort bounties"
+          >
+            <option value="newest">Newest First</option>
+            <option value="reward">Highest Reward</option>
+            <option value="ending">Ending Soon</option>
+          </select>
+
+          {/* Clear filters button */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              style={{
+                padding: '8px 12px',
+                fontSize: '13px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                backgroundColor: '#ffffff',
+                color: '#6b7280',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+              aria-label="Clear all filters"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Stats bar */}
       <div
         style={{
@@ -164,13 +551,20 @@ export default function MarketplacePage() {
         }}
       >
         <div>
-          <span style={{ color: '#6b7280' }}>Open bounties: </span>
-          <span style={{ fontWeight: 600, color: '#111827' }}>{bounties.length}</span>
+          <span style={{ color: '#6b7280' }}>
+            {filteredBounties.length === bounties.length ? 'Open bounties: ' : 'Showing: '}
+          </span>
+          <span style={{ fontWeight: 600, color: '#111827' }}>
+            {filteredBounties.length}
+            {filteredBounties.length !== bounties.length && (
+              <span style={{ color: '#6b7280', fontWeight: 400 }}> of {bounties.length}</span>
+            )}
+          </span>
         </div>
         <div>
           <span style={{ color: '#6b7280' }}>Total rewards: </span>
           <span style={{ fontWeight: 600, color: '#059669' }}>
-            {bounties
+            {filteredBounties
               .reduce((sum, b) => sum + parseFloat(b.reward_credits), 0)
               .toFixed(2)}{' '}
             M
@@ -206,7 +600,7 @@ export default function MarketplacePage() {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty state - no bounties at all */}
       {!loading && !error && bounties.length === 0 && (
         <div
           style={{
@@ -220,14 +614,46 @@ export default function MarketplacePage() {
           <p style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 500 }}>
             No open bounties
           </p>
-          <p style={{ margin: 0, fontSize: '14px' }}>
-            Check back later for new tasks
+          <p style={{ margin: 0, fontSize: '14px' }}>Check back later for new tasks</p>
+        </div>
+      )}
+
+      {/* Empty state - no matching bounties */}
+      {!loading && !error && bounties.length > 0 && filteredBounties.length === 0 && (
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '48px',
+            color: '#6b7280',
+            backgroundColor: '#f9fafb',
+            borderRadius: '8px',
+          }}
+        >
+          <p style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 500 }}>
+            No bounties match your filters
           </p>
+          <p style={{ margin: '0 0 16px 0', fontSize: '14px' }}>
+            Try adjusting your search or filters
+          </p>
+          <button
+            onClick={clearFilters}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              border: 'none',
+              borderRadius: '6px',
+              backgroundColor: '#6366f1',
+              color: '#ffffff',
+              cursor: 'pointer',
+            }}
+          >
+            Clear Filters
+          </button>
         </div>
       )}
 
       {/* Bounty list */}
-      {!loading && !error && bounties.length > 0 && (
+      {!loading && !error && filteredBounties.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -235,7 +661,7 @@ export default function MarketplacePage() {
             gap: '12px',
           }}
         >
-          {bounties.map((bounty) => (
+          {filteredBounties.map((bounty) => (
             <BountyCard
               key={bounty.id}
               id={bounty.id}
