@@ -923,8 +923,8 @@
         "Typecheck passes"
       ],
       "priority": 56,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000007 with NUMERIC(20,8) for precise decimals, non-negative balance constraints, automatic updated_at trigger; MCreditsAccount model with total_balance/has_sufficient_balance helpers; bigdecimal crate with serde feature; 4 unit tests; 162 tests pass"
     },
     {
       "id": "US-012B",

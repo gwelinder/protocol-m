@@ -168,6 +168,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Escape key and backdrop click to close modal
   - Updated PostCard to pass signatureEnvelope to VerifiedBadge
 
+#### M-Credits Economy (US-012A) — Token Accounts
+- US-012A: Created m_credits_accounts table migration:
+  - NUMERIC(20,8) for precise decimal handling (up to 999B credits with 8 decimal places)
+  - Unique constraint on DID (one account per identity)
+  - Non-negative balance constraints (balance >= 0, promo_balance >= 0)
+  - Automatic updated_at trigger for audit trail
+  - Index on did for fast account lookups
+- US-012A: Implemented MCreditsAccount model with:
+  - total_balance() helper combining balance + promo_balance
+  - has_sufficient_balance() check for payment authorization
+  - NewMCreditsAccount with zero-default balances
+  - 4 unit tests for balance calculations
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
