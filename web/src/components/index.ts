@@ -1,5 +1,7 @@
 export { IdentityBadge } from './IdentityBadge'
 export type { IdentityBadgeProps } from './IdentityBadge'
+export { PostCard } from './PostCard'
+export type { PostCardProps } from './PostCard'
 export { ProfileIdentities } from './ProfileIdentities'
 export type { ProfileIdentitiesProps, BoundDid } from './ProfileIdentities'
 export { VerifiedBadge } from './VerifiedBadge'
