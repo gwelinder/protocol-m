@@ -859,8 +859,8 @@
         "Typecheck passes"
       ],
       "priority": 52,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created POST /api/v1/posts endpoint with CreatePostRequest/CreatePostResponse; integrates verify_post_signature for optional signature verification; stores envelope, verified_did, and status; 158 tests pass"
     },
     {
       "id": "US-011A",
