@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-001G: Implemented keypair generation with ed25519-dalek and OsRng
 - US-001H: Added age encryption dependency to CLI crate for private key protection
 - US-001I: Implemented private key encryption with age passphrase protection
+- US-001J: Implemented private key decryption with graceful wrong passphrase handling
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation

@@ -166,7 +166,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -3289,6 +3289,306 @@
       "priority": 205,
       "passes": false,
       "notes": ""
+    },
+    {
+      "id": "US-045A",
+      "title": "Define M-Credit compute basket specification",
+      "description": "As a monetary architect, I need a formal compute basket so MC has stable redemption value.",
+      "acceptanceCriteria": [
+        "Define basket components: normalized inference tokens, GPU-seconds at spec, bandwidth units",
+        "Specify quality tiers (consumer, professional, enterprise)",
+        "Document basket weighting formula",
+        "Define rebalancing cadence (quarterly) and governance",
+        "Publish basket spec in docs/MONETARY_SPEC.md"
+      ],
+      "priority": 161,
+      "passes": false,
+      "notes": "Critical for dollar transition - MC must be unit of productive capacity"
+    },
+    {
+      "id": "US-045B",
+      "title": "Implement compute price index (CPI) tracking",
+      "description": "As a platform, I need a compute CPI so long-term contracts can reference stable purchasing power.",
+      "acceptanceCriteria": [
+        "Track basket component prices from provider marketplace",
+        "Compute weekly CPI value",
+        "Store historical CPI in compute_price_index table",
+        "Expose GET /v1/monetary/cpi endpoint",
+        "Add CPI to reserve attestations"
+      ],
+      "priority": 162,
+      "passes": false,
+      "notes": "Required for contracts denominated in MC over time"
+    },
+    {
+      "id": "US-045C",
+      "title": "Implement basket governance voting",
+      "description": "As a stakeholder, I need formal governance so basket changes are predictable.",
+      "acceptanceCriteria": [
+        "Define governance proposal format for basket changes",
+        "Implement signed voting by staked DIDs",
+        "Require quorum for basket rebalancing",
+        "Time-lock changes (30 days notice)",
+        "Audit log all governance decisions"
+      ],
+      "priority": 163,
+      "passes": false,
+      "notes": "Decentralized monetary policy"
+    },
+    {
+      "id": "US-046A",
+      "title": "Implement provider capacity bonding",
+      "description": "As a platform, I need providers to bond capacity so redemption is reliable.",
+      "acceptanceCriteria": [
+        "Create provider_bonds table with locked MC amount",
+        "Require bond = projected_capacity * bond_rate",
+        "Lock bond on provider registration",
+        "Release bond on clean exit (30-day notice)",
+        "Slash bond on non-delivery"
+      ],
+      "priority": 164,
+      "passes": false,
+      "notes": "Compute backing requires enforceable capacity"
+    },
+    {
+      "id": "US-046B",
+      "title": "Implement capacity commitment contracts",
+      "description": "As a buyer, I need guaranteed capacity so compute-backed MC is credible.",
+      "acceptanceCriteria": [
+        "Providers publish capacity_commitments (units/hour, SLA, penalty rate)",
+        "Track fulfillment vs commitment in real-time",
+        "Automatic slashing on missed commitments",
+        "Expose capacity utilization metrics",
+        "Add to provider reputation score"
+      ],
+      "priority": 165,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-046C",
+      "title": "Implement execution receipt fraud proofs",
+      "description": "As a buyer, I need fraud proofs so fake receipts are caught.",
+      "acceptanceCriteria": [
+        "Define fraud proof format (challenger stake, evidence, arbitration)",
+        "Implement challenge endpoint for disputed receipts",
+        "Slash provider bond on proven fraud",
+        "Reward challenger from slashed bond",
+        "Add fraud proof history to provider profile"
+      ],
+      "priority": 166,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-047A",
+      "title": "Implement enterprise multisig custody",
+      "description": "As an enterprise, I need multisig so MC holdings are secure.",
+      "acceptanceCriteria": [
+        "Support M-of-N DID signing for treasury operations",
+        "Define custody_policies with role-based permissions",
+        "Implement approval workflows for high-value transfers",
+        "Add custody audit log with all signer DIDs",
+        "UI for enterprise treasury management"
+      ],
+      "priority": 167,
+      "passes": false,
+      "notes": "Required for institutional adoption"
+    },
+    {
+      "id": "US-047B",
+      "title": "Implement GAAP/IFRS accounting exports",
+      "description": "As an enterprise, I need accounting exports so MC integrates with ERP.",
+      "acceptanceCriteria": [
+        "Export ledger events in standard accounting format",
+        "Support FIFO/LIFO cost basis tracking",
+        "Generate invoices for MC purchases",
+        "Export tax lot reports",
+        "Integrate with common ERP formats (CSV, JSON, API)"
+      ],
+      "priority": 168,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-047C",
+      "title": "Implement SOC2-grade audit infrastructure",
+      "description": "As an enterprise, I need SOC2 compliance so legal/compliance approves MC usage.",
+      "acceptanceCriteria": [
+        "Immutable audit logs with retention policy (7 years)",
+        "Access controls with role-based permissions",
+        "Encryption at rest and in transit",
+        "Automated compliance reporting",
+        "eDiscovery export capability"
+      ],
+      "priority": 169,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-048A",
+      "title": "Define regulatory mode selection",
+      "description": "As a platform, I need regulatory clarity so we operate legally.",
+      "acceptanceCriteria": [
+        "Document compute-only redemption mode (avoid MSB)",
+        "Document full-service mode (requires MSB/EMI)",
+        "Implement mode toggle in platform config",
+        "Restrict cash-out features in compute-only mode",
+        "Add regulatory mode to reserve attestations"
+      ],
+      "priority": 170,
+      "passes": false,
+      "notes": "Critical for legal operation"
+    },
+    {
+      "id": "US-048B",
+      "title": "Implement sanctions screening",
+      "description": "As a platform, I need sanctions screening so we don't serve blocked persons.",
+      "acceptanceCriteria": [
+        "Integrate OFAC/EU sanctions list",
+        "Screen DIDs on registration and high-value transactions",
+        "Block transactions to sanctioned DIDs",
+        "Audit log all screening decisions",
+        "Update lists weekly"
+      ],
+      "priority": 171,
+      "passes": false,
+      "notes": "Required for institutional participation"
+    },
+    {
+      "id": "US-048C",
+      "title": "Implement KYB for enterprise accounts",
+      "description": "As a platform, I need KYB so enterprises can legally hold MC.",
+      "acceptanceCriteria": [
+        "Partner with KYB provider (Persona, Onfido, etc.)",
+        "Require KYB for enterprise custody features",
+        "Store verification status and documents",
+        "Enable enhanced transaction limits for verified entities",
+        "Periodic re-verification"
+      ],
+      "priority": 172,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-049A",
+      "title": "Implement MC/USD market making infrastructure",
+      "description": "As a trader, I need liquid markets so MC is usable as settlement.",
+      "acceptanceCriteria": [
+        "Create order_book table for MC/USD pairs",
+        "Implement limit and market orders",
+        "Calculate spread and depth metrics",
+        "Expose real-time price feed",
+        "Add to reserve coverage calculation"
+      ],
+      "priority": 173,
+      "passes": false,
+      "notes": "Required for reserve currency dynamics"
+    },
+    {
+      "id": "US-049B",
+      "title": "Implement credit lines for high-MR participants",
+      "description": "As a high-MR agent, I need credit lines so I can operate at scale without prepaying.",
+      "acceptanceCriteria": [
+        "Calculate credit limit from MR + collateral + history",
+        "Implement intraday credit with end-of-day settlement",
+        "Automatic margin calls on limit breach",
+        "Credit utilization affects MR decay rate",
+        "Audit log all credit decisions"
+      ],
+      "priority": 174,
+      "passes": false,
+      "notes": "MC becomes clearinghouse function"
+    },
+    {
+      "id": "US-049C",
+      "title": "Implement net settlement for large counterparties",
+      "description": "As a large participant, I need net settlement so transaction costs are minimized.",
+      "acceptanceCriteria": [
+        "Enable bilateral netting agreements",
+        "Calculate net positions end-of-day",
+        "Single settlement transaction per netting pair",
+        "Reduce escrow hold requirements for netted pairs",
+        "Audit log net settlement calculations"
+      ],
+      "priority": 175,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-049D",
+      "title": "Implement compute forward contracts",
+      "description": "As a buyer, I need forwards so I can hedge compute price risk.",
+      "acceptanceCriteria": [
+        "Define forward contract format (delivery date, quantity, price)",
+        "Implement forward trading between DIDs",
+        "Collateralize positions with MC",
+        "Settlement on delivery date",
+        "Mark-to-market for margin requirements"
+      ],
+      "priority": 176,
+      "passes": false,
+      "notes": "Required for enterprise procurement"
+    },
+    {
+      "id": "US-049E",
+      "title": "Implement crisis liquidity facility",
+      "description": "As a platform, I need emergency liquidity so compute shocks don't break the system.",
+      "acceptanceCriteria": [
+        "Define crisis trigger conditions (capacity shortfall, price spike)",
+        "Implement emergency liquidity pool funded by fees",
+        "Automatic activation on trigger",
+        "Governance approval for manual activation",
+        "Post-crisis reporting and analysis"
+      ],
+      "priority": 177,
+      "passes": false,
+      "notes": "Central bank function for compute"
+    },
+    {
+      "id": "US-050A",
+      "title": "Implement cross-border settlement rails",
+      "description": "As a global participant, I need instant cross-border settlement.",
+      "acceptanceCriteria": [
+        "MC settlement is jurisdiction-agnostic",
+        "No correspondent banking delays",
+        "Compliance with local regulations per mode",
+        "Multi-currency on/off ramps",
+        "Settlement finality guarantees"
+      ],
+      "priority": 178,
+      "passes": false,
+      "notes": "Where USD dominance is most hated"
+    },
+    {
+      "id": "US-050B",
+      "title": "Implement institutional invoice settlement",
+      "description": "As an enterprise, I need MC invoicing so procurement departments adopt.",
+      "acceptanceCriteria": [
+        "Generate MC-denominated invoices",
+        "Payment terms (net-30, etc.) with MR-based underwriting",
+        "Automatic payment on due date from escrow",
+        "Integration with procurement systems",
+        "Audit trail for invoice lifecycle"
+      ],
+      "priority": 179,
+      "passes": false,
+      "notes": "Procurement drives adoption"
+    },
+    {
+      "id": "US-050C",
+      "title": "Implement MC as collateral for external systems",
+      "description": "As a DeFi participant, I need MC as collateral so it has broader utility.",
+      "acceptanceCriteria": [
+        "Implement collateral lock endpoint for external protocols",
+        "Provide signed attestations of locked MC",
+        "Support liquidation callbacks",
+        "Track collateral utilization",
+        "Add collateral ratio to reserve attestations"
+      ],
+      "priority": 180,
+      "passes": false,
+      "notes": "Reserve status requires collateral utility"
     }
   ]
 }
