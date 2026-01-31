@@ -883,3 +883,19 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - Ensure envelope signer matches the submitter's bound DID to prevent impersonation
   - 244 total tests pass (219 server + 43 crypto + 6 golden + 4 roundtrip + 19 CLI + 2 doctests + 5 ignored)
 ---
+
+## 2026-01-31 - US-014C
+- What was implemented: Test-based auto-approval for bounty submissions
+- Files changed:
+  - `crates/openclaw-server/src/routes/bounties.rs` - Added verify_test_submission function, TestVerificationResult enum, get_receipt_harness_hash and get_receipt_all_tests_passed helpers, update_submission_status function; modified submit_bounty to call auto-approval for test-based bounties; updated SubmitBountyResponse with auto_approved and message fields; added 14 new unit tests
+- **Learnings for future iterations:**
+  - For test-based bounties, auto-approval/rejection happens immediately after submission creation
+  - TestVerificationResult::Approved means harness hash matches AND all_tests_passed is true
+  - TestVerificationResult::HarnessHashMismatch captures both expected and actual hash for debugging
+  - TestVerificationResult::TestsFailed is returned when all_tests_passed is false or missing
+  - Execution receipt field accessors support both snake_case (harness_hash) and camelCase (harnessHash)
+  - SubmitBountyResponse includes optional auto_approved: bool and message: String for client feedback
+  - skip_serializing_if = "Option::is_none" keeps response clean for non-test bounties
+  - Escrow release is NOT implemented in this story - that's US-014D
+  - 258 total tests pass (14 new tests for auto-approval verification)
+---

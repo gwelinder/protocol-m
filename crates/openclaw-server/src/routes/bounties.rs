@@ -101,6 +101,12 @@ pub struct SubmitBountyResponse {
     pub submitter_did: String,
     /// Current status of the submission.
     pub status: SubmissionStatus,
+    /// Whether auto-approval was performed (for test-based bounties).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_approved: Option<bool>,
+    /// Message explaining the submission result.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
 
 /// Creates the bounties router.
@@ -656,6 +662,102 @@ fn validate_execution_receipt_for_tests(
     Ok(())
 }
 
+/// Result of test-based auto-approval verification.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TestVerificationResult {
+    /// All tests passed and harness hash matches - approve submission.
+    Approved,
+    /// Harness hash does not match - reject submission.
+    HarnessHashMismatch { expected: String, actual: String },
+    /// Tests did not all pass - reject submission.
+    TestsFailed,
+}
+
+/// Gets the harness hash from an execution receipt (supports both camelCase and snake_case).
+fn get_receipt_harness_hash(receipt: &serde_json::Value) -> Option<&str> {
+    receipt
+        .get("harness_hash")
+        .or_else(|| receipt.get("harnessHash"))
+        .and_then(|v| v.as_str())
+}
+
+/// Gets the all_tests_passed value from an execution receipt (supports both camelCase and snake_case).
+fn get_receipt_all_tests_passed(receipt: &serde_json::Value) -> Option<bool> {
+    receipt
+        .get("all_tests_passed")
+        .or_else(|| receipt.get("allTestsPassed"))
+        .and_then(|v| v.as_bool())
+}
+
+/// Verifies a test-based submission by checking:
+/// 1. Execution receipt harness_hash matches bounty's eval_harness_hash
+/// 2. all_tests_passed is true
+///
+/// Returns the verification result.
+fn verify_test_submission(
+    bounty: &Bounty,
+    execution_receipt: &serde_json::Value,
+) -> TestVerificationResult {
+    // Get the expected harness hash from bounty metadata
+    let expected_hash = match bounty.eval_harness_hash() {
+        Some(h) => h,
+        None => {
+            // This shouldn't happen for test-based bounties, but handle gracefully
+            return TestVerificationResult::HarnessHashMismatch {
+                expected: "".to_string(),
+                actual: "unknown".to_string(),
+            };
+        }
+    };
+
+    // Get the actual harness hash from execution receipt
+    let actual_hash = match get_receipt_harness_hash(execution_receipt) {
+        Some(h) => h,
+        None => {
+            return TestVerificationResult::HarnessHashMismatch {
+                expected: expected_hash.to_string(),
+                actual: "".to_string(),
+            };
+        }
+    };
+
+    // Check harness hash matches
+    if expected_hash != actual_hash {
+        return TestVerificationResult::HarnessHashMismatch {
+            expected: expected_hash.to_string(),
+            actual: actual_hash.to_string(),
+        };
+    }
+
+    // Check all tests passed
+    match get_receipt_all_tests_passed(execution_receipt) {
+        Some(true) => TestVerificationResult::Approved,
+        Some(false) | None => TestVerificationResult::TestsFailed,
+    }
+}
+
+/// Updates a submission status to approved or rejected.
+async fn update_submission_status(
+    pool: &PgPool,
+    submission_id: Uuid,
+    status: SubmissionStatus,
+) -> Result<(), AppError> {
+    sqlx::query(
+        r#"
+        UPDATE bounty_submissions
+        SET status = $2
+        WHERE id = $1
+        "#,
+    )
+    .bind(submission_id)
+    .bind(status)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to update submission status: {}", e)))?;
+
+    Ok(())
+}
+
 /// Submits work to an open bounty.
 async fn submit_bounty(
     State(pool): State<PgPool>,
@@ -730,13 +832,57 @@ async fn submit_bounty(
     .await
     .map_err(|e| AppError::Internal(format!("Failed to create submission: {}", e)))?;
 
-    // Step 9: Return response
+    // Step 9: For test-based bounties, perform auto-approval verification
+    let (final_status, auto_approved, message) = if bounty.uses_tests() {
+        let execution_receipt = request.execution_receipt.as_ref().unwrap(); // Safe: validated earlier
+        let result = verify_test_submission(&bounty, execution_receipt);
+
+        match result {
+            TestVerificationResult::Approved => {
+                // Auto-approve the submission
+                update_submission_status(&pool, submission.id, SubmissionStatus::Approved).await?;
+                (
+                    SubmissionStatus::Approved,
+                    Some(true),
+                    Some("Tests passed and harness hash verified - submission auto-approved".to_string()),
+                )
+            }
+            TestVerificationResult::HarnessHashMismatch { expected, actual } => {
+                // Auto-reject the submission
+                update_submission_status(&pool, submission.id, SubmissionStatus::Rejected).await?;
+                (
+                    SubmissionStatus::Rejected,
+                    Some(true),
+                    Some(format!(
+                        "Harness hash mismatch - expected '{}', got '{}'",
+                        expected, actual
+                    )),
+                )
+            }
+            TestVerificationResult::TestsFailed => {
+                // Auto-reject the submission
+                update_submission_status(&pool, submission.id, SubmissionStatus::Rejected).await?;
+                (
+                    SubmissionStatus::Rejected,
+                    Some(true),
+                    Some("Tests did not pass - submission auto-rejected".to_string()),
+                )
+            }
+        }
+    } else {
+        // Non-test bounties remain pending for manual review
+        (SubmissionStatus::Pending, None, None)
+    };
+
+    // Step 10: Return response
     Ok(Json(SubmitBountyResponse {
         success: true,
         submission_id: submission.id,
         bounty_id: submission.bounty_id,
         submitter_did: submission.submitter_did,
-        status: submission.status,
+        status: final_status,
+        auto_approved,
+        message,
     }))
 }
 
@@ -1215,6 +1361,8 @@ mod tests {
             bounty_id: Uuid::new_v4(),
             submitter_did: "did:key:z6MkTest".to_string(),
             status: SubmissionStatus::Pending,
+            auto_approved: None,
+            message: None,
         };
 
         let json = serde_json::to_string(&response).unwrap();
@@ -1223,6 +1371,27 @@ mod tests {
         assert!(json.contains("\"bountyId\":"));
         assert!(json.contains("\"submitterDid\":\"did:key:z6MkTest\""));
         assert!(json.contains("\"status\":\"pending\""));
+        // Optional fields should be omitted when None
+        assert!(!json.contains("autoApproved"));
+        assert!(!json.contains("message"));
+    }
+
+    #[test]
+    fn test_submit_bounty_response_with_auto_approval() {
+        let response = SubmitBountyResponse {
+            success: true,
+            submission_id: Uuid::new_v4(),
+            bounty_id: Uuid::new_v4(),
+            submitter_did: "did:key:z6MkTest".to_string(),
+            status: SubmissionStatus::Approved,
+            auto_approved: Some(true),
+            message: Some("Tests passed - auto-approved".to_string()),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"status\":\"approved\""));
+        assert!(json.contains("\"autoApproved\":true"));
+        assert!(json.contains("\"message\":\"Tests passed - auto-approved\""));
     }
 
     // ===== Execution Receipt Validation Tests =====
@@ -1492,5 +1661,177 @@ mod tests {
         let result = verify_envelope_signature(&envelope);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Invalid signature length"));
+    }
+
+    // ===== Test-Based Auto-Approval Tests =====
+
+    fn create_test_bounty(eval_harness_hash: &str) -> Bounty {
+        let now = chrono::Utc::now();
+        Bounty {
+            id: Uuid::new_v4(),
+            poster_did: "did:key:z6MkPoster".to_string(),
+            title: "Test Bounty".to_string(),
+            description: "A test-based bounty".to_string(),
+            reward_credits: BigDecimal::from_str("100.00000000").unwrap(),
+            closure_type: BountyClosureType::Tests,
+            status: BountyStatus::Open,
+            metadata: json!({"eval_harness_hash": eval_harness_hash}),
+            created_at: now,
+            updated_at: now,
+            deadline: None,
+        }
+    }
+
+    #[test]
+    fn test_verify_test_submission_approved() {
+        let bounty = create_test_bounty("sha256:abc123");
+        let execution_receipt = json!({
+            "harness_hash": "sha256:abc123",
+            "all_tests_passed": true,
+            "test_results": {"passed": 10, "failed": 0}
+        });
+
+        let result = verify_test_submission(&bounty, &execution_receipt);
+        assert_eq!(result, TestVerificationResult::Approved);
+    }
+
+    #[test]
+    fn test_verify_test_submission_approved_camel_case() {
+        let bounty = create_test_bounty("sha256:abc123");
+        let execution_receipt = json!({
+            "harnessHash": "sha256:abc123",
+            "allTestsPassed": true,
+            "testResults": {"passed": 10, "failed": 0}
+        });
+
+        let result = verify_test_submission(&bounty, &execution_receipt);
+        assert_eq!(result, TestVerificationResult::Approved);
+    }
+
+    #[test]
+    fn test_verify_test_submission_harness_hash_mismatch() {
+        let bounty = create_test_bounty("sha256:expected");
+        let execution_receipt = json!({
+            "harness_hash": "sha256:different",
+            "all_tests_passed": true,
+            "test_results": {"passed": 10, "failed": 0}
+        });
+
+        let result = verify_test_submission(&bounty, &execution_receipt);
+        assert_eq!(
+            result,
+            TestVerificationResult::HarnessHashMismatch {
+                expected: "sha256:expected".to_string(),
+                actual: "sha256:different".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn test_verify_test_submission_tests_failed() {
+        let bounty = create_test_bounty("sha256:abc123");
+        let execution_receipt = json!({
+            "harness_hash": "sha256:abc123",
+            "all_tests_passed": false,
+            "test_results": {"passed": 8, "failed": 2}
+        });
+
+        let result = verify_test_submission(&bounty, &execution_receipt);
+        assert_eq!(result, TestVerificationResult::TestsFailed);
+    }
+
+    #[test]
+    fn test_verify_test_submission_missing_all_tests_passed() {
+        let bounty = create_test_bounty("sha256:abc123");
+        let execution_receipt = json!({
+            "harness_hash": "sha256:abc123",
+            "test_results": {"passed": 10, "failed": 0}
+        });
+
+        let result = verify_test_submission(&bounty, &execution_receipt);
+        assert_eq!(result, TestVerificationResult::TestsFailed);
+    }
+
+    #[test]
+    fn test_verify_test_submission_missing_harness_hash() {
+        let bounty = create_test_bounty("sha256:expected");
+        let execution_receipt = json!({
+            "all_tests_passed": true,
+            "test_results": {"passed": 10, "failed": 0}
+        });
+
+        let result = verify_test_submission(&bounty, &execution_receipt);
+        match result {
+            TestVerificationResult::HarnessHashMismatch { expected, actual } => {
+                assert_eq!(expected, "sha256:expected");
+                assert_eq!(actual, "");
+            }
+            _ => panic!("Expected HarnessHashMismatch"),
+        }
+    }
+
+    #[test]
+    fn test_get_receipt_harness_hash_snake_case() {
+        let receipt = json!({
+            "harness_hash": "sha256:test123"
+        });
+        assert_eq!(get_receipt_harness_hash(&receipt), Some("sha256:test123"));
+    }
+
+    #[test]
+    fn test_get_receipt_harness_hash_camel_case() {
+        let receipt = json!({
+            "harnessHash": "sha256:test456"
+        });
+        assert_eq!(get_receipt_harness_hash(&receipt), Some("sha256:test456"));
+    }
+
+    #[test]
+    fn test_get_receipt_harness_hash_missing() {
+        let receipt = json!({
+            "other_field": "value"
+        });
+        assert_eq!(get_receipt_harness_hash(&receipt), None);
+    }
+
+    #[test]
+    fn test_get_receipt_all_tests_passed_snake_case() {
+        let receipt = json!({
+            "all_tests_passed": true
+        });
+        assert_eq!(get_receipt_all_tests_passed(&receipt), Some(true));
+    }
+
+    #[test]
+    fn test_get_receipt_all_tests_passed_camel_case() {
+        let receipt = json!({
+            "allTestsPassed": false
+        });
+        assert_eq!(get_receipt_all_tests_passed(&receipt), Some(false));
+    }
+
+    #[test]
+    fn test_get_receipt_all_tests_passed_missing() {
+        let receipt = json!({
+            "other_field": "value"
+        });
+        assert_eq!(get_receipt_all_tests_passed(&receipt), None);
+    }
+
+    #[test]
+    fn test_verification_result_equality() {
+        assert_eq!(TestVerificationResult::Approved, TestVerificationResult::Approved);
+        assert_eq!(TestVerificationResult::TestsFailed, TestVerificationResult::TestsFailed);
+        assert_eq!(
+            TestVerificationResult::HarnessHashMismatch {
+                expected: "a".to_string(),
+                actual: "b".to_string()
+            },
+            TestVerificationResult::HarnessHashMismatch {
+                expected: "a".to_string(),
+                actual: "b".to_string()
+            }
+        );
+        assert_ne!(TestVerificationResult::Approved, TestVerificationResult::TestsFailed);
     }
 }

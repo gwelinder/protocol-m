@@ -296,6 +296,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Returns submission_id, bounty_id, submitter_did, status
   - 20 unit tests for request/response serialization, execution receipt validation, envelope parsing, and signature verification
   - 244 total tests pass
+- US-014C: Implemented test-based auto-approval for bounty submissions:
+  - Added TestVerificationResult enum (Approved, HarnessHashMismatch, TestsFailed)
+  - Added verify_test_submission function to check harness hash match and all_tests_passed
+  - Added get_receipt_harness_hash and get_receipt_all_tests_passed helpers (support both snake_case and camelCase)
+  - Added update_submission_status function for approval/rejection
+  - Modified submit_bounty to auto-approve/reject test-based submissions immediately
+  - Extended SubmitBountyResponse with optional auto_approved and message fields
+  - Auto-approves when: harness_hash matches bounty's eval_harness_hash AND all_tests_passed is true
+  - Auto-rejects when: harness_hash mismatch OR all_tests_passed is false/missing
+  - Returns informative messages explaining approval/rejection reasons
+  - 14 unit tests for verification logic, helper functions, and result equality
+  - 258 total tests pass
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
