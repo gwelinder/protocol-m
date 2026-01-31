@@ -430,8 +430,8 @@
       "description": "As a developer, I need colored output so verification results are clear.",
       "acceptanceCriteria": [
         "Add colored or termcolor dependency",
-        "On success: print green ✓ with message",
-        "On failure: print red ✗ with error",
+        "On success: print green \u2713 with message",
+        "On failure: print red \u2717 with error",
         "Show signer DID (truncated for readability)",
         "Typecheck passes"
       ],
@@ -566,8 +566,8 @@
         "Typecheck passes"
       ],
       "priority": 34,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented validation: signature verification, DID parsing, metadata size/structure, duplicate hash check"
     },
     {
       "id": "US-006A",
@@ -868,7 +868,7 @@
       "description": "As a developer, I need badge component so verified posts are marked.",
       "acceptanceCriteria": [
         "Create VerifiedBadge component",
-        "Show green ✓ icon for valid_bound status",
+        "Show green \u2713 icon for valid_bound status",
         "Show 'Signed' text (no checkmark) for valid_unbound",
         "Show nothing for none or invalid status",
         "Add hover tooltip with signer DID",
@@ -1918,7 +1918,7 @@
       "acceptanceCriteria": [
         "Create docs/ARCHITECTURE.md",
         "Diagram: Layers (Identity, Attribution, Social, Economics, Governance)",
-        "Explain data flow: DID generation → signing → verification → reputation",
+        "Explain data flow: DID generation \u2192 signing \u2192 verification \u2192 reputation",
         "Include Moltbook integration points",
         "Post summary to m/protocol-m with link"
       ],
@@ -2025,7 +2025,7 @@
       "description": "As a developer, I want documentation so others can implement signed posts.",
       "acceptanceCriteria": [
         "Create docs/MOLTBOOK_SIGNATURES.md",
-        "Explain: OpenClaw sign → Moltbook post with envelope → verification",
+        "Explain: OpenClaw sign \u2192 Moltbook post with envelope \u2192 verification",
         "Include code examples (Rust, curl)",
         "Diagram the signature verification flow",
         "Post link to m/protocol-m"
@@ -2398,8 +2398,8 @@
       "description": "As the Protocol M agent, I want a visual roadmap so the community sees progress.",
       "acceptanceCriteria": [
         "Generate roadmap diagram (text-based or image)",
-        "Show: Completed (✅), In Progress (🔄), Planned (📋)",
-        "Phases: Identity → Attribution → Social → Economics → Governance",
+        "Show: Completed (\u2705), In Progress (\ud83d\udd04), Planned (\ud83d\udccb)",
+        "Phases: Identity \u2192 Attribution \u2192 Social \u2192 Economics \u2192 Governance",
         "Include major milestones with dates",
         "Post to m/protocol-m",
         "Update monthly or after major milestones"
@@ -3277,7 +3277,7 @@
     },
     {
       "id": "US-044S",
-      "title": "Add automated “self-verify” proofs for agents with audit sampling",
+      "title": "Add automated \u201cself-verify\u201d proofs for agents with audit sampling",
       "description": "As a platform, I need to let high-trust agents self-verify low-risk tasks while still enabling audits.",
       "acceptanceCriteria": [
         "Define self_verify eligibility: trust tier >= threshold and low dispute rate",
@@ -3638,7 +3638,7 @@
     },
     {
       "id": "US-051D",
-      "title": "Implement community feedback → PRD pipeline",
+      "title": "Implement community feedback \u2192 PRD pipeline",
       "description": "As Protocol M, I need to capture feedback and create user stories.",
       "acceptanceCriteria": [
         "Detect feedback in replies to our comments",
@@ -3658,7 +3658,7 @@
       "acceptanceCriteria": [
         "Part 1: Why build this",
         "Part 2: Identity as anchor",
-        "Part 3: Credits ≠ Reputation",
+        "Part 3: Credits \u2260 Reputation",
         "Part 4: Delegation marketplace",
         "Part 5: Safety & governance",
         "Part 6: Join the build",
@@ -3689,7 +3689,7 @@
       "description": "As Protocol M, I need a signature footer for brand recognition.",
       "acceptanceCriteria": [
         "Add footer to substantive comments (> 100 words)",
-        "Footer: Building Protocol M — agent identity, provenance, economics. m/protocol-m",
+        "Footer: Building Protocol M \u2014 agent identity, provenance, economics. m/protocol-m",
         "Skip footer for casual comments",
         "Track footer usage and effectiveness"
       ],
