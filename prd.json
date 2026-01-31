@@ -646,8 +646,8 @@
         "Typecheck passes"
       ],
       "priority": 39,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added DepthLevel struct, group_by_depth function, 'levels' field in response alongside 'parents' for backwards compat"
     },
     {
       "id": "US-008A",
