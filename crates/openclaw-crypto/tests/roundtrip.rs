@@ -10,6 +10,7 @@ use base64::Engine;
 use ed25519_dalek::{Signature, Verifier};
 use openclaw_crypto::{
     generate_keypair, jcs_canonical_bytes, pubkey_to_did, sha256_hex, sign_artifact,
+    verify_artifact,
 };
 
 #[test]
@@ -120,30 +121,21 @@ fn test_tampered_content_fails_verification() {
     )
     .expect("Signing should succeed");
 
-    // Tampered content should have different hash
-    let tampered_content = b"Tampered file content";
-    let tampered_hash = sha256_hex(tampered_content);
+    // Modify one byte of the file (tampered content)
+    let mut tampered_content = original_content.to_vec();
+    tampered_content[0] = b'X'; // Change 'O' to 'X'
 
-    // The envelope's hash should not match the tampered content
-    assert_ne!(envelope.hash.value, tampered_hash);
+    // Verify using verify_artifact - should fail with hash mismatch
+    let result = verify_artifact(&verifying_key, &tampered_content, &envelope);
 
-    // Create a fake envelope with tampered hash to test signature failure
-    let mut tampered_envelope = envelope.clone();
-    tampered_envelope.hash.value = tampered_hash;
-    tampered_envelope.signature = String::new();
+    assert!(result.is_err(), "Verification should fail for tampered content");
 
-    let canonical_bytes = jcs_canonical_bytes(&tampered_envelope).expect("canonicalize");
-
-    let signature_bytes = BASE64_STANDARD
-        .decode(&envelope.signature)
-        .expect("decode base64");
-    let signature = Signature::from_bytes(&signature_bytes.try_into().expect("64 bytes"));
-
-    // Verification should fail because the canonical bytes don't match
-    let result = verifying_key.verify(&canonical_bytes, &signature);
+    // Verify error message indicates hash mismatch
+    let error_message = result.unwrap_err().to_string();
     assert!(
-        result.is_err(),
-        "Verification should fail for tampered content"
+        error_message.contains("Hash mismatch") || error_message.contains("hash"),
+        "Error should mention hash mismatch, got: {}",
+        error_message
     );
 }
 

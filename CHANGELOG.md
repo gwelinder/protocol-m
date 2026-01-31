@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-003C: Implemented verify command handler (--sig flag, envelope parsing, verification)
 - US-003D: Added colored verification output (green ✓ / red ✗, truncated DID display)
 - US-003E: Added local identity indicator (cyan "Local Identity" / yellow "External Identity")
+- US-003F: Added tamper detection test (verify_artifact with hash mismatch error check)
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
