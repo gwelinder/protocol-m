@@ -352,7 +352,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - NewComputeProvider with factory methods: openai(), anthropic(), gpu()
   - 8 unit tests for serialization and helper methods
   - 287 total tests pass
-  - 279 total tests pass
+
+#### Credit Redemption Endpoint (US-015B) — Spending M-Credits
+- US-015B: Created POST /api/v1/credits/redeem endpoint for credit redemption:
+  - Created redemption_receipts table migration (20260131000016) with user_did, provider_id, amount_credits, allocation_id, metadata (JSONB)
+  - Indexes on user_did, provider_id, and created_at for efficient queries
+  - RedemptionReceipt model with NewRedemptionReceipt factory
+  - RedeemCreditsRequest/Response types with camelCase JSON serialization
+  - validate_redemption_amount() with min (1.0) and max (10,000.0) credit bounds
+  - load_active_provider() to verify provider exists and is active
+  - get_account_balance() to check current DID balance
+  - deduct_balance() for atomic balance deduction with CHECK constraint validation
+  - insert_burn_event() to record credit burn in ledger
+  - allocate_with_provider() placeholder for provider API integration
+  - 302 total tests pass
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

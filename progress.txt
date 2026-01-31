@@ -942,3 +942,20 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - is_active boolean allows disabling providers without deleting them
   - 287 total tests pass (8 new compute_provider tests)
 ---
+
+## 2026-01-31 - US-015B & US-015C
+- What was implemented: Credit redemption endpoint (POST /api/v1/credits/redeem) and redemption_receipts table
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000016_create_redemption_receipts_table.sql` - Migration with user_did, provider_id, amount_credits, allocation_id, metadata (JSONB), indexes
+  - `crates/openclaw-server/src/models/redemption_receipt.rs` - RedemptionReceipt and NewRedemptionReceipt models with 3 unit tests
+  - `crates/openclaw-server/src/models.rs` - Added redemption_receipt module and re-exports
+  - `crates/openclaw-server/src/routes/credits.rs` - Added redeem_credits handler with full redemption flow and 12 unit tests
+- **Learnings for future iterations:**
+  - The redemption endpoint validates DID format, amount bounds (1-10000 credits), and provider availability
+  - Atomic balance deduction uses UPDATE...RETURNING to get new balance in single query
+  - The database CHECK constraint (balance_non_negative) handles insufficient balance errors
+  - Provider API allocation is a placeholder - real implementation would call provider endpoints
+  - Burn event is recorded in ledger with provider_id and receipt_id for traceability
+  - US-015C was implemented as dependency for US-015B since the endpoint requires the receipts table
+  - 302 total tests pass (15 new redemption tests)
+---

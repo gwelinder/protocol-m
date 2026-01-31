@@ -14,8 +14,8 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::models::{
-    InvoiceStatus, NewMCreditsLedger, NewPurchaseInvoice, PaymentProvider,
-    PurchaseInvoice,
+    ComputeProvider, InvoiceStatus, NewMCreditsLedger, NewPurchaseInvoice,
+    NewRedemptionReceipt, PaymentProvider, PurchaseInvoice, RedemptionReceipt,
 };
 
 /// Credit rate: 1 USD = 100 M-credits
@@ -73,6 +73,7 @@ pub fn router(pool: PgPool) -> Router {
         .route("/webhook/stripe", post(handle_stripe_webhook))
         .route("/grant-promo", post(grant_promo_credits_handler))
         .route("/reserves", get(get_reserves))
+        .route("/redeem", post(redeem_credits))
         .with_state(pool)
 }
 
@@ -966,6 +967,310 @@ async fn get_reserves(
     }))
 }
 
+// ===== Credit Redemption (US-015B) =====
+
+/// Minimum redemption amount in credits.
+const MIN_REDEMPTION_CREDITS: &str = "1.00000000";
+
+/// Maximum redemption amount per transaction.
+const MAX_REDEMPTION_CREDITS: &str = "10000.00000000";
+
+/// Request body for redeeming credits.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RedeemCreditsRequest {
+    /// The DID of the user redeeming credits.
+    /// In production, this would be extracted from auth token.
+    pub did: String,
+    /// The ID of the compute provider to redeem with.
+    pub provider_id: Uuid,
+    /// Amount of credits to redeem.
+    pub amount: String,
+}
+
+/// Response for successful credit redemption.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RedeemCreditsResponse {
+    /// Whether the redemption was successful.
+    pub success: bool,
+    /// The redemption receipt ID.
+    pub receipt_id: Uuid,
+    /// Amount of credits redeemed.
+    pub amount_redeemed: String,
+    /// Allocation ID from the provider (if available).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allocation_id: Option<String>,
+    /// Provider name.
+    pub provider_name: String,
+    /// New balance after redemption.
+    pub new_balance: String,
+}
+
+/// Validates the redemption amount is within acceptable bounds.
+fn validate_redemption_amount(amount: &BigDecimal) -> Result<(), AppError> {
+    let min = BigDecimal::from_str(MIN_REDEMPTION_CREDITS).unwrap();
+    let max = BigDecimal::from_str(MAX_REDEMPTION_CREDITS).unwrap();
+
+    if amount < &min {
+        return Err(AppError::BadRequest(format!(
+            "Minimum redemption amount is {} credits",
+            MIN_REDEMPTION_CREDITS
+        )));
+    }
+
+    if amount > &max {
+        return Err(AppError::BadRequest(format!(
+            "Maximum redemption amount is {} credits per transaction",
+            MAX_REDEMPTION_CREDITS
+        )));
+    }
+
+    if amount <= &BigDecimal::from(0) {
+        return Err(AppError::BadRequest(
+            "Redemption amount must be positive".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+/// Loads a compute provider by ID and validates it's active.
+async fn load_active_provider(pool: &PgPool, provider_id: Uuid) -> Result<ComputeProvider, AppError> {
+    let provider: ComputeProvider = sqlx::query_as(
+        r#"
+        SELECT id, name, provider_type, api_endpoint, conversion_rate, is_active, created_at, updated_at
+        FROM compute_providers
+        WHERE id = $1
+        "#,
+    )
+    .bind(provider_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to load provider: {}", e)))?
+    .ok_or_else(|| AppError::NotFound(format!("Provider not found: {}", provider_id)))?;
+
+    if !provider.is_active {
+        return Err(AppError::BadRequest(format!(
+            "Provider '{}' is not currently active",
+            provider.name
+        )));
+    }
+
+    Ok(provider)
+}
+
+/// Gets the current balance for a DID.
+async fn get_account_balance(pool: &PgPool, did: &str) -> Result<BigDecimal, AppError> {
+    let balance: Option<BigDecimal> = sqlx::query_scalar(
+        r#"
+        SELECT balance
+        FROM m_credits_accounts
+        WHERE did = $1
+        "#,
+    )
+    .bind(did)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query balance: {}", e)))?;
+
+    Ok(balance.unwrap_or_else(|| BigDecimal::from(0)))
+}
+
+/// Deducts credits from a DID's balance atomically.
+/// Returns the new balance after deduction.
+async fn deduct_balance(
+    pool: &PgPool,
+    did: &str,
+    amount: &BigDecimal,
+) -> Result<BigDecimal, AppError> {
+    // Atomically deduct and return new balance
+    // This also validates sufficient balance via the CHECK constraint
+    let new_balance: BigDecimal = sqlx::query_scalar(
+        r#"
+        UPDATE m_credits_accounts
+        SET balance = balance - $2
+        WHERE did = $1
+        RETURNING balance
+        "#,
+    )
+    .bind(did)
+    .bind(amount)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
+        // Check if this is a constraint violation (insufficient balance)
+        let err_str = e.to_string();
+        if err_str.contains("balance_non_negative") || err_str.contains("check") {
+            AppError::BadRequest("Insufficient balance for redemption".to_string())
+        } else {
+            AppError::Internal(format!("Failed to deduct balance: {}", e))
+        }
+    })?
+    .ok_or_else(|| AppError::NotFound(format!("Account not found for DID: {}", did)))?;
+
+    Ok(new_balance)
+}
+
+/// Inserts a burn event into the ledger for the redemption.
+async fn insert_burn_event(
+    pool: &PgPool,
+    did: &str,
+    amount: &BigDecimal,
+    provider_id: Uuid,
+    receipt_id: Uuid,
+) -> Result<Uuid, AppError> {
+    let ledger_entry = NewMCreditsLedger::burn(
+        did.to_string(),
+        amount.clone(),
+        json!({
+            "reason": "credit_redemption",
+            "provider_id": provider_id.to_string(),
+            "receipt_id": receipt_id.to_string()
+        }),
+    );
+
+    let ledger_id: Uuid = sqlx::query_scalar(
+        r#"
+        INSERT INTO m_credits_ledger (event_type, from_did, to_did, amount, metadata)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id
+        "#,
+    )
+    .bind(ledger_entry.event_type)
+    .bind(&ledger_entry.from_did)
+    .bind(&ledger_entry.to_did)
+    .bind(&ledger_entry.amount)
+    .bind(&ledger_entry.metadata)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to insert ledger entry: {}", e)))?;
+
+    Ok(ledger_id)
+}
+
+/// Calls the provider API to allocate credits/quota.
+/// This is a placeholder - in production, this would make actual API calls.
+async fn allocate_with_provider(
+    _provider: &ComputeProvider,
+    _amount: &BigDecimal,
+) -> Result<Option<String>, AppError> {
+    // TODO: Implement actual provider API calls
+    // For now, return a placeholder allocation ID
+    //
+    // In production, this would:
+    // 1. Call the provider's API endpoint
+    // 2. Pass authentication credentials
+    // 3. Request allocation of compute resources
+    // 4. Return the allocation ID from the provider
+    //
+    // Example for OpenAI:
+    // - POST to provider.api_endpoint + "/usage/allocate"
+    // - Include API key from secure storage
+    // - Request allocation of tokens based on conversion_rate
+    //
+    // Example for Anthropic:
+    // - Similar flow with their API
+    //
+    // For GPU providers:
+    // - Request allocation of compute time
+
+    let allocation_id = format!("alloc_placeholder_{}", Uuid::new_v4());
+    Ok(Some(allocation_id))
+}
+
+
+/// POST /api/v1/credits/redeem
+///
+/// Redeems M-credits with a compute provider.
+///
+/// This endpoint:
+/// 1. Validates the request parameters
+/// 2. Verifies the provider exists and is active
+/// 3. Checks the user has sufficient balance
+/// 4. Deducts credits from the user's account
+/// 5. Inserts a burn event into the ledger
+/// 6. Calls the provider API to allocate resources
+/// 7. Creates a redemption receipt
+/// 8. Returns the allocation details
+async fn redeem_credits(
+    State(pool): State<PgPool>,
+    Json(request): Json<RedeemCreditsRequest>,
+) -> Result<Json<RedeemCreditsResponse>, AppError> {
+    // Step 1: Validate DID format
+    validate_did_format(&request.did)?;
+
+    // Step 2: Parse and validate amount
+    let amount = BigDecimal::from_str(&request.amount).map_err(|e| {
+        AppError::BadRequest(format!("Invalid amount format: {}", e))
+    })?;
+    validate_redemption_amount(&amount)?;
+
+    // Step 3: Load and validate provider
+    let provider = load_active_provider(&pool, request.provider_id).await?;
+
+    // Step 4: Check current balance
+    let current_balance = get_account_balance(&pool, &request.did).await?;
+    if current_balance < amount {
+        return Err(AppError::BadRequest(format!(
+            "Insufficient balance. Current: {}, Requested: {}",
+            current_balance, amount
+        )));
+    }
+
+    // Step 5: Generate receipt ID upfront for ledger reference
+    let receipt_id = Uuid::new_v4();
+
+    // Step 6: Deduct balance atomically
+    let new_balance = deduct_balance(&pool, &request.did, &amount).await?;
+
+    // Step 7: Insert burn event
+    let _ledger_id = insert_burn_event(&pool, &request.did, &amount, provider.id, receipt_id).await?;
+
+    // Step 8: Call provider API to allocate resources
+    let allocation_id = allocate_with_provider(&provider, &amount).await?;
+
+    // Step 9: Create redemption receipt
+    let new_receipt = NewRedemptionReceipt::new(
+        request.did.clone(),
+        provider.id,
+        amount.clone(),
+        allocation_id.clone(),
+        json!({
+            "provider_name": provider.name,
+            "conversion_rate": provider.conversion_rate.to_string()
+        }),
+    );
+
+    // Insert with the pre-generated ID
+    let receipt: RedemptionReceipt = sqlx::query_as(
+        r#"
+        INSERT INTO redemption_receipts (id, user_did, provider_id, amount_credits, allocation_id, metadata)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, user_did, provider_id, amount_credits, allocation_id, metadata, created_at
+        "#,
+    )
+    .bind(receipt_id)
+    .bind(&new_receipt.user_did)
+    .bind(new_receipt.provider_id)
+    .bind(&new_receipt.amount_credits)
+    .bind(&new_receipt.allocation_id)
+    .bind(&new_receipt.metadata)
+    .fetch_one(&pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to insert redemption receipt: {}", e)))?;
+
+    // Step 10: Return success response
+    Ok(Json(RedeemCreditsResponse {
+        success: true,
+        receipt_id: receipt.id,
+        amount_redeemed: amount.to_string(),
+        allocation_id,
+        provider_name: provider.name,
+        new_balance: new_balance.to_string(),
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1715,5 +2020,147 @@ mod tests {
         assert!(json.contains("\"total_reserves_usd\":"));
         assert!(json.contains("\"reserve_coverage_ratio\":"));
         assert!(json.contains("\"timestamp\":"));
+    }
+
+    // ===== Credit Redemption Tests (US-015B) =====
+
+    #[test]
+    fn test_validate_redemption_amount_valid() {
+        let amount = BigDecimal::from_str("50.00000000").unwrap();
+        let result = validate_redemption_amount(&amount);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_redemption_amount_minimum() {
+        let amount = BigDecimal::from_str("1.00000000").unwrap();
+        let result = validate_redemption_amount(&amount);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_redemption_amount_maximum() {
+        let amount = BigDecimal::from_str("10000.00000000").unwrap();
+        let result = validate_redemption_amount(&amount);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_redemption_amount_below_minimum() {
+        let amount = BigDecimal::from_str("0.50000000").unwrap();
+        let result = validate_redemption_amount(&amount);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Minimum redemption amount"));
+    }
+
+    #[test]
+    fn test_validate_redemption_amount_above_maximum() {
+        let amount = BigDecimal::from_str("10001.00000000").unwrap();
+        let result = validate_redemption_amount(&amount);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Maximum redemption amount"));
+    }
+
+    #[test]
+    fn test_validate_redemption_amount_zero() {
+        let amount = BigDecimal::from_str("0").unwrap();
+        let result = validate_redemption_amount(&amount);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_redemption_amount_negative() {
+        let amount = BigDecimal::from_str("-10.00000000").unwrap();
+        let result = validate_redemption_amount(&amount);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_redeem_request_deserialization() {
+        let provider_id = Uuid::new_v4();
+        let json = format!(
+            r#"{{
+                "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                "providerId": "{}",
+                "amount": "100.00000000"
+            }}"#,
+            provider_id
+        );
+
+        let request: RedeemCreditsRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(request.did, "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK");
+        assert_eq!(request.provider_id, provider_id);
+        assert_eq!(request.amount, "100.00000000");
+    }
+
+    #[test]
+    fn test_redeem_response_serialization() {
+        let receipt_id = Uuid::new_v4();
+        let response = RedeemCreditsResponse {
+            success: true,
+            receipt_id,
+            amount_redeemed: "100.00000000".to_string(),
+            allocation_id: Some("alloc_test123".to_string()),
+            provider_name: "OpenAI".to_string(),
+            new_balance: "900.00000000".to_string(),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"success\":true"));
+        assert!(json.contains("\"receiptId\":"));
+        assert!(json.contains("\"amountRedeemed\":\"100.00000000\""));
+        assert!(json.contains("\"allocationId\":\"alloc_test123\""));
+        assert!(json.contains("\"providerName\":\"OpenAI\""));
+        assert!(json.contains("\"newBalance\":\"900.00000000\""));
+    }
+
+    #[test]
+    fn test_redeem_response_without_allocation_id() {
+        let receipt_id = Uuid::new_v4();
+        let response = RedeemCreditsResponse {
+            success: true,
+            receipt_id,
+            amount_redeemed: "50.00000000".to_string(),
+            allocation_id: None,
+            provider_name: "GPU Provider".to_string(),
+            new_balance: "450.00000000".to_string(),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"success\":true"));
+        // allocation_id should be omitted when None
+        assert!(!json.contains("allocationId"));
+    }
+
+    #[test]
+    fn test_min_max_redemption_constants() {
+        let min = BigDecimal::from_str(MIN_REDEMPTION_CREDITS).unwrap();
+        let max = BigDecimal::from_str(MAX_REDEMPTION_CREDITS).unwrap();
+        assert_eq!(min, BigDecimal::from_str("1.00000000").unwrap());
+        assert_eq!(max, BigDecimal::from_str("10000.00000000").unwrap());
+    }
+
+    #[test]
+    fn test_new_m_credits_ledger_burn_for_redemption() {
+        let amount = BigDecimal::from_str("100.00000000").unwrap();
+        let provider_id = Uuid::new_v4();
+        let receipt_id = Uuid::new_v4();
+        let metadata = json!({
+            "reason": "credit_redemption",
+            "provider_id": provider_id.to_string(),
+            "receipt_id": receipt_id.to_string()
+        });
+
+        let entry = NewMCreditsLedger::burn(
+            "did:key:z6MkTest".to_string(),
+            amount.clone(),
+            metadata.clone(),
+        );
+
+        assert_eq!(entry.event_type, MCreditsEventType::Burn);
+        assert_eq!(entry.from_did, Some("did:key:z6MkTest".to_string()));
+        assert!(entry.to_did.is_none());
+        assert_eq!(entry.amount, amount);
+        assert_eq!(entry.metadata["reason"], "credit_redemption");
     }
 }

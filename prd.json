@@ -1197,8 +1197,8 @@
         "Typecheck passes"
       ],
       "priority": 72,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created redemption_receipts table migration (20260131000016); RedemptionReceipt model; POST /api/v1/credits/redeem endpoint with validation, balance check, atomic deduction, burn event, provider allocation placeholder, receipt storage; 302 total tests pass"
     },
     {
       "id": "US-015C",
@@ -1213,8 +1213,8 @@
         "Typecheck passes"
       ],
       "priority": 73,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented as part of US-015B - migration 20260131000016_create_redemption_receipts_table.sql with all required fields, indexes on user_did, provider_id, and created_at; RedemptionReceipt and NewRedemptionReceipt models with 3 unit tests"
     },
     {
       "id": "US-015D",
