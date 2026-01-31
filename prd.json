@@ -662,8 +662,8 @@
         "Typecheck passes"
       ],
       "priority": 40,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added unique constraint on active DIDs to prevent duplicate bindings; 111 tests pass"
     },
     {
       "id": "US-008B",

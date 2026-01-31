@@ -77,6 +77,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-007B: Response includes both flat 'parents' array and grouped 'levels' array
 - US-007B: Results ordered by timestamp DESC within each level
 
+#### DID Binding (US-008A) — Identity Linking
+- US-008A: Created did_bindings table migration for linking DIDs to user accounts
+- US-008A: Added indexes on user_id and did columns for fast lookups
+- US-008A: Added unique constraint on active (non-revoked) DID bindings
+- US-008A: Defined DidBinding and NewDidBinding model types with is_active() helper
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
