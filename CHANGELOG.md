@@ -128,13 +128,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-009C: Created profile page at /profile/[userId]
 - US-009C: Created bind-identity instructions page at /bind-identity
 
-#### Post Signature Verification (US-010A) — Database Schema
+#### Post Signature Verification (US-010A to US-010B) — Database Schema & Logic
 - US-010A: Created migration for posts table signature fields
 - US-010A: Added verification_status enum (none, invalid, valid_unbound, valid_bound)
 - US-010A: Added signature_envelope_json (JSONB nullable) column
 - US-010A: Added verified_did (text nullable) column
 - US-010A: Added indexes on verification_status and verified_did
 - US-010A: Created Post, NewPost, and VerificationStatus model types with 5 unit tests
+- US-010B: Implemented verify_post_signature function with:
+  - SHA-256 hash recomputation and verification
+  - JCS canonicalization for signature verification
+  - DID extraction from signature envelope
+  - Database check for DID binding to user
+  - Returns VerificationResult with status and DID
+- US-010B: Added 13 unit tests for verification logic
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
