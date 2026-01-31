@@ -1261,8 +1261,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 76,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created BountyCard component in web/src/components/BountyCard.tsx with ClosureTypeBadge, truncated DID display, deadline formatting; marketplace page at /marketplace shows open bounties with stats bar (count, total rewards), empty state, loading state; mock data for development; typecheck passes"
     },
     {
       "id": "US-016C",

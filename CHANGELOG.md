@@ -392,6 +392,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated bounties mint_reputation_for_submission to use new reputation system
   - 20+ new unit tests for models and routes
   - 340 server tests pass, 414 total tests pass
+- US-016B: Created bounty marketplace page:
+  - BountyCard component in web/src/components/BountyCard.tsx
+  - ClosureTypeBadge subcomponent with color-coded badges (tests=green, quorum=purple, requester=blue)
+  - Truncated poster DID display with full DID on hover
+  - Smart deadline formatting (days/hours left, or expiry date)
+  - Reward credits display with 'k' suffix for thousands
+  - Marketplace page at /marketplace route
+  - Stats bar showing open bounty count and total rewards
+  - Loading, error, and empty states
+  - Mock data for development (5 sample bounties)
+  - TypeScript typecheck passes
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

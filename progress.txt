@@ -993,3 +993,18 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - FK from reputation_events to m_reputation with ON DELETE CASCADE
   - 340 server tests pass, 414 total tests across all crates
 ---
+
+## 2026-01-31 - US-016B
+- What was implemented: Bounty marketplace page for browsing open bounties
+- Files changed:
+  - `web/src/components/BountyCard.tsx` - New component with ClosureTypeBadge, truncated DID, deadline formatting
+  - `web/src/app/marketplace/page.tsx` - Marketplace page with stats bar, loading/error/empty states, bounty listing
+- **Learnings for future iterations:**
+  - BountyCard follows existing PostCard patterns (inline styles, hover effects, consistent colors)
+  - ClosureTypeBadge uses color-coded badges: tests=green (#059669), quorum=purple (#7c3aed), requester=blue (#0284c7)
+  - Deadline formatting: days/hours remaining for near deadlines, full date for >7 days, "Expired" for past
+  - Reward formatting: use 'k' suffix for thousands (e.g., "1.3k M")
+  - Use mock data during development (MOCK_BOUNTIES array) - replace with API call in production
+  - Stats bar shows summary metrics: open bounty count and total rewards available
+  - TypeScript typecheck passes in web/ directory
+---
