@@ -974,8 +974,8 @@
         "Typecheck passes"
       ],
       "priority": 59,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created POST /api/v1/credits/purchase endpoint with PurchaseCreditsRequest/Response types, credit calculation (1 USD = 100 credits), amount validation ($1-$10k), payment provider parsing (Stripe/USDC/Apple Pay), placeholder Stripe Checkout URL; 22 unit tests; 197 tests pass"
     },
     {
       "id": "US-012E",

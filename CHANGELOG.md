@@ -202,6 +202,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Status helper methods (is_pending, is_completed, is_failed)
   - NewPurchaseInvoice for creating new invoice records
   - 6 unit tests for serialization and status helpers
+- US-012D: Implemented POST /api/v1/credits/purchase endpoint:
+  - PurchaseCreditsRequest/Response types with camelCase JSON serialization
+  - Credit calculation: 1 USD = 100 M-credits (configurable rate constant)
+  - Amount validation: $1-$10,000 USD bounds with positivity check
+  - Payment provider parsing: Stripe (default), USDC, Apple Pay
+  - Invoice creation with status=pending in purchase_invoices table
+  - Placeholder Stripe Checkout URL generation (production would use real Stripe API)
+  - 22 unit tests for helper functions, validation, and serialization
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
