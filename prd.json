@@ -598,8 +598,8 @@
         "Typecheck passes"
       ],
       "priority": 36,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Supports string or array of IDs/hashes; cycle detection in US-006C"
     },
     {
       "id": "US-006C",
