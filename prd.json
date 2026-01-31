@@ -1360,8 +1360,8 @@
         "Typecheck passes"
       ],
       "priority": 82,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created crates/openclaw-cli/src/policy.rs with Policy, ApprovalTier, NotificationChannel, EmergencyContact structs; validate_policy() parses JSON, validates version='1.0', checks non-negative limits, validates DIDs in allowed_delegates and approval_tiers.approvers using openclaw_crypto::did_to_verifying_key, validates positive thresholds; 20 unit tests cover valid/invalid JSON, version, negative values, invalid DIDs, empty tiers, notification channels; all 38 CLI tests pass"
     },
     {
       "id": "US-017C",

@@ -458,6 +458,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - emergency_contact field for kill switch notifications
   - Comprehensive docs/POLICY.md with examples (minimal, conservative, production)
   - No Rust changes needed - validation logic in US-017B
+- US-017B: Implemented policy validation logic:
+  - Created crates/openclaw-cli/src/policy.rs module
+  - Policy struct matching JSON schema with serde defaults
+  - ApprovalTier, NotificationChannel, NotificationChannelType, EmergencyContact types
+  - validate_policy(policy_json: &str) -> Result<Policy> function
+  - Validates: JSON parsing, version="1.0", non-negative limits, valid DIDs, positive thresholds
+  - DID validation via openclaw_crypto::did_to_verifying_key()
+  - Policy::minimal() and Policy::summary() helpers
+  - 20 unit tests covering valid/invalid cases
+  - 38 CLI tests pass, 392+ server tests pass
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

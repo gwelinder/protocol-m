@@ -1096,3 +1096,19 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - No Rust code changes needed for schema definition - validation logic comes in US-017B
   - 392 server tests pass; typecheck passes
 ---
+
+## 2026-01-31 - US-017B
+- What was implemented: Policy validation logic for Protocol M policy files
+- Files changed:
+  - `crates/openclaw-cli/src/policy.rs` - New module with Policy struct, ApprovalTier, NotificationChannel, EmergencyContact types, validate_policy() function
+  - `crates/openclaw-cli/src/main.rs` - Added policy module declaration
+- **Learnings for future iterations:**
+  - Use openclaw_crypto::did_to_verifying_key() to validate DID format - returns Ok if valid, Err if invalid
+  - Policy struct has serde defaults for all optional fields (max_spend_per_day=1000, max_spend_per_bounty=500, enabled=true)
+  - Validation order: JSON parse → version check → non-negative limits → DID validation → positive thresholds
+  - ApprovalTier threshold must be positive (> 0, not just >= 0) per JSON schema exclusiveMinimum
+  - NotificationChannelType uses #[serde(rename_all = "lowercase")] for email/webhook/slack
+  - Policy::summary() provides human-readable policy overview for CLI output
+  - 20 new policy tests cover: minimal/full policy, invalid JSON, wrong version, negative values, invalid DIDs, empty tiers
+  - 38 CLI tests pass total; 392+ server tests pass
+---
