@@ -101,6 +101,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-008F: Added increment_failed_attempts function for atomic counter updates
 - US-008F: Returns 429 with descriptive message when challenge locked
 - US-008F: Added 4 unit tests for bind attempt limiting
+- US-008G: Added integration tests for DID binding flow (5 tests covering full flow, invalid signature, expired challenge, used challenge, reuse prevention)
+- US-008G: Tests marked #[ignore] requiring PostgreSQL database
+- US-008G: Run with: `cargo test --test did_binding_integration -- --ignored`
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

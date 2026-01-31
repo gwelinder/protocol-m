@@ -762,8 +762,8 @@
         "Typecheck passes"
       ],
       "priority": 46,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 5 integration tests in tests/did_binding_integration.rs covering full flow, invalid signature, expired challenge, used challenge detection; tests marked #[ignore] requiring PostgreSQL; 136 tests pass"
     },
     {
       "id": "US-009A",
