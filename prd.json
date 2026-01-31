@@ -1147,8 +1147,8 @@
         "Typecheck passes"
       ],
       "priority": 69,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented release_escrow function that: marks escrow status to released, inserts release ledger entry, upserts recipient balance atomically, updates bounty status to completed; added mint_reputation_for_submission with closure-type weights (tests=1.5x, quorum=1.2x, requester=1.0x); wired both into submit_bounty auto-approval flow; 11 new unit tests for escrow release and reputation minting; 267 total tests pass"
     },
     {
       "id": "US-014E",

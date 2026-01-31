@@ -308,6 +308,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Returns informative messages explaining approval/rejection reasons
   - 14 unit tests for verification logic, helper functions, and result equality
   - 258 total tests pass
+- US-014D: Implemented escrow release on bounty approval:
+  - Added release_escrow function performing atomic operations:
+    - Marks escrow_hold status as 'released' with released_at timestamp
+    - Inserts release ledger entry (NewMCreditsLedger::release)
+    - Updates recipient's m_credits_accounts balance via upsert (ON CONFLICT DO UPDATE)
+    - Updates bounty status to 'completed'
+  - Added mint_reputation_for_submission function with closure-type weighted reputation:
+    - Tests closure: 1.5x weight (automated verification, highest trust)
+    - Quorum closure: 1.2x weight (peer-reviewed)
+    - Requester closure: 1.0x weight (single approver)
+    - Base formula: reward_credits * 0.1 * closure_type_weight
+    - Records reputation as 0-amount mint with metadata (full m_reputation table deferred to US-016A)
+  - Wired escrow release and reputation minting into submit_bounty auto-approval flow
+  - Updated success message to indicate escrow released
+  - 11 new unit tests for escrow release metadata, reputation weights, and response serialization
+  - 267 total tests pass
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

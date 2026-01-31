@@ -899,3 +899,17 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - Escrow release is NOT implemented in this story - that's US-014D
   - 258 total tests pass (14 new tests for auto-approval verification)
 ---
+
+## 2026-01-31 - US-014D
+- What was implemented: Escrow release on bounty approval with reputation minting
+- Files changed:
+  - `crates/openclaw-server/src/routes/bounties.rs` - Added release_escrow function (marks escrow as released, inserts release ledger entry, upserts recipient balance, updates bounty status to completed); added mint_reputation_for_submission function with closure-type weighted reputation (tests=1.5x, quorum=1.2x, requester=1.0x); wired both into submit_bounty auto-approval flow; added 11 new unit tests
+- **Learnings for future iterations:**
+  - release_escrow performs atomic operations: escrow status update → ledger entry → balance upsert → bounty status update
+  - Use ON CONFLICT DO UPDATE for atomic balance upsert (INSERT with conflict updates existing row)
+  - Reputation is currently recorded as a 0-amount mint with metadata (full m_reputation table is US-016A)
+  - Closure-type weights: tests=1.5x (automated), quorum=1.2x (peer-reviewed), requester=1.0x (single approver)
+  - Base reputation formula: reward_credits * 0.1 * closure_type_weight
+  - Release ledger event uses NewMCreditsLedger::release() factory method (from_did=None, to_did=recipient)
+  - 267 total tests pass (11 new tests for escrow release and reputation)
+---
