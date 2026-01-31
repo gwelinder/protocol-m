@@ -1,7 +1,7 @@
 //! Bounty marketplace endpoints.
 
 use axum::{
-    extract::State,
+    extract::{Path, State},
     routing::post,
     Json, Router,
 };
@@ -14,9 +14,10 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::models::{
-    Bounty, BountyClosureType, BountyStatus, EscrowStatus, NewBounty,
-    NewEscrowHold, NewMCreditsLedger,
+    Bounty, BountyClosureType, BountyStatus, BountySubmission, EscrowStatus, NewBounty,
+    NewBountySubmission, NewEscrowHold, NewMCreditsLedger, SubmissionStatus,
 };
+use openclaw_crypto::{did_to_verifying_key, SignatureEnvelopeV1};
 
 /// Minimum bounty reward in credits.
 const MIN_BOUNTY_REWARD: &str = "1.00000000";
@@ -70,10 +71,43 @@ pub struct CreateBountyResponse {
     pub ledger_id: Uuid,
 }
 
+/// Request body for submitting work to a bounty.
+/// Note: In production, user_id would come from authentication.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmitBountyRequest {
+    /// The user ID submitting the work.
+    /// In production, this would be extracted from auth token.
+    pub user_id: Uuid,
+    /// The signed artifact envelope (SignatureEnvelopeV1).
+    pub signature_envelope: serde_json::Value,
+    /// Optional execution receipt for test-based bounties.
+    /// Required for closure_type=tests.
+    #[serde(default)]
+    pub execution_receipt: Option<serde_json::Value>,
+}
+
+/// Response for successful bounty submission.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmitBountyResponse {
+    /// Whether the submission was created successfully.
+    pub success: bool,
+    /// The unique submission ID.
+    pub submission_id: Uuid,
+    /// ID of the bounty this submission is for.
+    pub bounty_id: Uuid,
+    /// DID of the submitter.
+    pub submitter_did: String,
+    /// Current status of the submission.
+    pub status: SubmissionStatus,
+}
+
 /// Creates the bounties router.
 pub fn router(pool: PgPool) -> Router {
     Router::new()
         .route("/", post(create_bounty))
+        .route("/{id}/submit", post(submit_bounty))
         .with_state(pool)
 }
 
@@ -477,6 +511,232 @@ async fn create_bounty(
         status: bounty.status,
         escrow_id,
         ledger_id,
+    }))
+}
+
+// ===== Bounty Submission Endpoint =====
+
+/// Loads a bounty by ID and validates it is open for submissions.
+async fn load_bounty_for_submission(pool: &PgPool, bounty_id: Uuid) -> Result<Bounty, AppError> {
+    let bounty: Option<Bounty> = sqlx::query_as(
+        r#"
+        SELECT id, poster_did, title, description, reward_credits, closure_type, status, metadata, created_at, updated_at, deadline
+        FROM bounties
+        WHERE id = $1
+        "#,
+    )
+    .bind(bounty_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query bounty: {}", e)))?;
+
+    let bounty = bounty.ok_or_else(|| AppError::NotFound(format!("Bounty not found: {}", bounty_id)))?;
+
+    // Check bounty is open for submissions
+    if !bounty.is_open() {
+        return Err(AppError::BadRequest(format!(
+            "Bounty is not open for submissions. Current status: {:?}",
+            bounty.status
+        )));
+    }
+
+    // Check bounty hasn't expired
+    if bounty.is_expired() {
+        return Err(AppError::BadRequest(
+            "Bounty has expired and is no longer accepting submissions".to_string(),
+        ));
+    }
+
+    Ok(bounty)
+}
+
+/// Parses and validates the signature envelope from the request.
+fn parse_signature_envelope(envelope_json: &serde_json::Value) -> Result<SignatureEnvelopeV1, AppError> {
+    serde_json::from_value(envelope_json.clone())
+        .map_err(|e| AppError::BadRequest(format!("Invalid signature envelope format: {}", e)))
+}
+
+/// Verifies the signature envelope cryptographically.
+fn verify_envelope_signature(envelope: &SignatureEnvelopeV1) -> Result<(), AppError> {
+    use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+    use base64::Engine;
+    use ed25519_dalek::{Signature, Verifier};
+    use openclaw_crypto::jcs_canonical_bytes;
+
+    // Validate envelope version/type/algo
+    if envelope.version != "1.0" {
+        return Err(AppError::BadRequest(format!(
+            "Unsupported envelope version: '{}' (expected '1.0')",
+            envelope.version
+        )));
+    }
+
+    // Allow both "signature-envelope" and "contribution-manifest" types
+    if envelope.envelope_type != "signature-envelope" && envelope.envelope_type != "contribution-manifest" {
+        return Err(AppError::BadRequest(format!(
+            "Invalid envelope type: '{}' (expected 'signature-envelope' or 'contribution-manifest')",
+            envelope.envelope_type
+        )));
+    }
+
+    if envelope.algo != "ed25519" {
+        return Err(AppError::BadRequest(format!(
+            "Unsupported signature algorithm: '{}' (expected 'ed25519')",
+            envelope.algo
+        )));
+    }
+
+    if envelope.hash.algo != "sha-256" {
+        return Err(AppError::BadRequest(format!(
+            "Unsupported hash algorithm: '{}' (expected 'sha-256')",
+            envelope.hash.algo
+        )));
+    }
+
+    // Extract verifying key from DID
+    let verifying_key = did_to_verifying_key(&envelope.signer)
+        .map_err(|e| AppError::BadRequest(format!("Invalid DID in envelope: {}", e)))?;
+
+    // Create envelope copy with empty signature for canonicalization
+    let mut verify_envelope = envelope.clone();
+    verify_envelope.signature = String::new();
+
+    // Canonicalize envelope with JCS
+    let canonical_bytes = jcs_canonical_bytes(&verify_envelope)
+        .map_err(|e| AppError::BadRequest(format!("Failed to canonicalize envelope: {}", e)))?;
+
+    // Decode base64 signature
+    let signature_bytes = BASE64_STANDARD
+        .decode(&envelope.signature)
+        .map_err(|e| AppError::BadRequest(format!("Invalid base64 signature: {}", e)))?;
+
+    let signature_array: [u8; 64] = signature_bytes.try_into().map_err(|_| {
+        AppError::BadRequest("Invalid signature length: expected 64 bytes".to_string())
+    })?;
+
+    let signature = Signature::from_bytes(&signature_array);
+
+    // Verify signature with ed25519
+    verifying_key
+        .verify(&canonical_bytes, &signature)
+        .map_err(|_| AppError::BadRequest("Signature verification failed".to_string()))?;
+
+    Ok(())
+}
+
+/// Validates the execution receipt for test-based bounties.
+fn validate_execution_receipt_for_tests(
+    execution_receipt: &Option<serde_json::Value>,
+) -> Result<(), AppError> {
+    let receipt = execution_receipt.as_ref().ok_or_else(|| {
+        AppError::BadRequest(
+            "Test-based bounties require an execution_receipt with test results".to_string(),
+        )
+    })?;
+
+    // Check that harness_hash is present
+    if receipt.get("harness_hash").and_then(|v| v.as_str()).is_none()
+        && receipt.get("harnessHash").and_then(|v| v.as_str()).is_none()
+    {
+        return Err(AppError::BadRequest(
+            "Execution receipt must include 'harness_hash' field".to_string(),
+        ));
+    }
+
+    // Check that all_tests_passed is present (boolean)
+    let has_tests_passed = receipt.get("all_tests_passed").and_then(|v| v.as_bool()).is_some()
+        || receipt.get("allTestsPassed").and_then(|v| v.as_bool()).is_some();
+
+    if !has_tests_passed {
+        return Err(AppError::BadRequest(
+            "Execution receipt must include 'all_tests_passed' (boolean) field".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+/// Submits work to an open bounty.
+async fn submit_bounty(
+    State(pool): State<PgPool>,
+    Path(bounty_id): Path<Uuid>,
+    Json(request): Json<SubmitBountyRequest>,
+) -> Result<Json<SubmitBountyResponse>, AppError> {
+    // Step 1: Load and validate the bounty
+    let bounty = load_bounty_for_submission(&pool, bounty_id).await?;
+
+    // Step 2: Get user's bound DID (authentication + DID binding check)
+    let submitter_did = get_user_bound_did(&pool, request.user_id).await
+        .map_err(|_| AppError::BadRequest(
+            "User must have a bound DID to submit work. Please bind your DID first.".to_string(),
+        ))?;
+
+    // Step 3: Parse and validate the signature envelope
+    let envelope = parse_signature_envelope(&request.signature_envelope)?;
+
+    // Step 4: Verify envelope signature cryptographically
+    verify_envelope_signature(&envelope)?;
+
+    // Step 5: Verify the envelope signer matches the submitter's DID
+    if envelope.signer != submitter_did {
+        return Err(AppError::BadRequest(format!(
+            "Envelope signer '{}' does not match submitter DID '{}'",
+            envelope.signer, submitter_did
+        )));
+    }
+
+    // Step 6: For test-based bounties, validate execution_receipt
+    if bounty.uses_tests() {
+        validate_execution_receipt_for_tests(&request.execution_receipt)?;
+    }
+
+    // Step 7: Extract artifact hash from envelope
+    let artifact_hash = envelope.hash.value.clone();
+
+    // Step 8: Create the submission record
+    let submission_id = Uuid::new_v4();
+    let new_submission = if bounty.uses_tests() {
+        NewBountySubmission::with_execution_receipt(
+            bounty_id,
+            submitter_did.clone(),
+            artifact_hash.clone(),
+            request.signature_envelope.clone(),
+            request.execution_receipt.clone().unwrap(),
+        )
+    } else {
+        NewBountySubmission::without_execution_receipt(
+            bounty_id,
+            submitter_did.clone(),
+            artifact_hash.clone(),
+            request.signature_envelope.clone(),
+        )
+    };
+
+    let submission: BountySubmission = sqlx::query_as(
+        r#"
+        INSERT INTO bounty_submissions (id, bounty_id, submitter_did, artifact_hash, signature_envelope, execution_receipt, status, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        RETURNING id, bounty_id, submitter_did, artifact_hash, signature_envelope, execution_receipt, status, created_at
+        "#,
+    )
+    .bind(submission_id)
+    .bind(new_submission.bounty_id)
+    .bind(&new_submission.submitter_did)
+    .bind(&new_submission.artifact_hash)
+    .bind(&new_submission.signature_envelope)
+    .bind(&new_submission.execution_receipt)
+    .bind(SubmissionStatus::Pending)
+    .fetch_one(&pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to create submission: {}", e)))?;
+
+    // Step 9: Return response
+    Ok(Json(SubmitBountyResponse {
+        success: true,
+        submission_id: submission.id,
+        bounty_id: submission.bounty_id,
+        submitter_did: submission.submitter_did,
+        status: submission.status,
     }))
 }
 
@@ -894,5 +1154,343 @@ mod tests {
         assert!(entry.to_did.is_none());
         assert_eq!(entry.amount, amount);
         assert_eq!(entry.metadata["reason"], "bounty_escrow");
+    }
+
+    // ===== Submission Request/Response Tests =====
+
+    #[test]
+    fn test_submit_bounty_request_deserialization() {
+        let json = r#"{
+            "userId": "550e8400-e29b-41d4-a716-446655440000",
+            "signatureEnvelope": {
+                "version": "1.0",
+                "type": "signature-envelope",
+                "algo": "ed25519",
+                "signer": "did:key:z6MkTest",
+                "hash": {"algo": "sha-256", "value": "abc123"},
+                "artifact": {"name": "test.txt", "size": 100},
+                "signature": "base64sig",
+                "timestamp": "2026-01-01T00:00:00Z"
+            }
+        }"#;
+
+        let request: SubmitBountyRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(request.user_id.to_string(), "550e8400-e29b-41d4-a716-446655440000");
+        assert!(request.execution_receipt.is_none());
+    }
+
+    #[test]
+    fn test_submit_bounty_request_with_execution_receipt() {
+        let json = r#"{
+            "userId": "550e8400-e29b-41d4-a716-446655440000",
+            "signatureEnvelope": {
+                "version": "1.0",
+                "type": "signature-envelope",
+                "algo": "ed25519",
+                "signer": "did:key:z6MkTest",
+                "hash": {"algo": "sha-256", "value": "abc123"},
+                "artifact": {"name": "test.txt", "size": 100},
+                "signature": "base64sig",
+                "timestamp": "2026-01-01T00:00:00Z"
+            },
+            "executionReceipt": {
+                "harness_hash": "sha256:testharness",
+                "all_tests_passed": true,
+                "test_results": {"passed": 10, "failed": 0}
+            }
+        }"#;
+
+        let request: SubmitBountyRequest = serde_json::from_str(json).unwrap();
+        assert!(request.execution_receipt.is_some());
+        let receipt = request.execution_receipt.unwrap();
+        assert_eq!(receipt["harness_hash"], "sha256:testharness");
+        assert_eq!(receipt["all_tests_passed"], true);
+    }
+
+    #[test]
+    fn test_submit_bounty_response_serialization() {
+        let response = SubmitBountyResponse {
+            success: true,
+            submission_id: Uuid::new_v4(),
+            bounty_id: Uuid::new_v4(),
+            submitter_did: "did:key:z6MkTest".to_string(),
+            status: SubmissionStatus::Pending,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"success\":true"));
+        assert!(json.contains("\"submissionId\":"));
+        assert!(json.contains("\"bountyId\":"));
+        assert!(json.contains("\"submitterDid\":\"did:key:z6MkTest\""));
+        assert!(json.contains("\"status\":\"pending\""));
+    }
+
+    // ===== Execution Receipt Validation Tests =====
+
+    #[test]
+    fn test_validate_execution_receipt_valid() {
+        let receipt = Some(json!({
+            "harness_hash": "sha256:testharness",
+            "all_tests_passed": true,
+            "test_results": {"passed": 10, "failed": 0}
+        }));
+
+        let result = validate_execution_receipt_for_tests(&receipt);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_execution_receipt_camel_case() {
+        let receipt = Some(json!({
+            "harnessHash": "sha256:testharness",
+            "allTestsPassed": false,
+            "testResults": {"passed": 8, "failed": 2}
+        }));
+
+        let result = validate_execution_receipt_for_tests(&receipt);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_execution_receipt_missing() {
+        let result = validate_execution_receipt_for_tests(&None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("require an execution_receipt"));
+    }
+
+    #[test]
+    fn test_validate_execution_receipt_missing_harness_hash() {
+        let receipt = Some(json!({
+            "all_tests_passed": true,
+            "test_results": {"passed": 10, "failed": 0}
+        }));
+
+        let result = validate_execution_receipt_for_tests(&receipt);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("harness_hash"));
+    }
+
+    #[test]
+    fn test_validate_execution_receipt_missing_tests_passed() {
+        let receipt = Some(json!({
+            "harness_hash": "sha256:testharness",
+            "test_results": {"passed": 10, "failed": 0}
+        }));
+
+        let result = validate_execution_receipt_for_tests(&receipt);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("all_tests_passed"));
+    }
+
+    // ===== Signature Envelope Parsing Tests =====
+
+    #[test]
+    fn test_parse_signature_envelope_valid() {
+        let envelope_json = json!({
+            "version": "1.0",
+            "type": "signature-envelope",
+            "algo": "ed25519",
+            "signer": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+            "hash": {"algo": "sha-256", "value": "abc123def456"},
+            "artifact": {"name": "test.txt", "size": 100},
+            "signature": "YmFzZTY0c2ln",
+            "timestamp": "2026-01-01T00:00:00Z"
+        });
+
+        let result = parse_signature_envelope(&envelope_json);
+        assert!(result.is_ok());
+        let envelope = result.unwrap();
+        assert_eq!(envelope.version, "1.0");
+        assert_eq!(envelope.envelope_type, "signature-envelope");
+        assert_eq!(envelope.hash.value, "abc123def456");
+    }
+
+    #[test]
+    fn test_parse_signature_envelope_invalid_structure() {
+        let envelope_json = json!({
+            "version": "1.0"
+            // Missing required fields
+        });
+
+        let result = parse_signature_envelope(&envelope_json);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid signature envelope format"));
+    }
+
+    // ===== Envelope Signature Verification Tests =====
+
+    #[test]
+    fn test_verify_envelope_invalid_version() {
+        let envelope = SignatureEnvelopeV1 {
+            version: "2.0".to_string(),
+            envelope_type: "signature-envelope".to_string(),
+            algo: "ed25519".to_string(),
+            signer: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_string(),
+            hash: openclaw_crypto::HashRef {
+                algo: "sha-256".to_string(),
+                value: "abc123".to_string(),
+            },
+            artifact: openclaw_crypto::ArtifactInfo {
+                name: "test.txt".to_string(),
+                size: 100,
+            },
+            signature: "YmFzZTY0c2ln".to_string(),
+            timestamp: "2026-01-01T00:00:00Z".to_string(),
+            metadata: None,
+        };
+
+        let result = verify_envelope_signature(&envelope);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Unsupported envelope version"));
+    }
+
+    #[test]
+    fn test_verify_envelope_invalid_type() {
+        let envelope = SignatureEnvelopeV1 {
+            version: "1.0".to_string(),
+            envelope_type: "invalid-type".to_string(),
+            algo: "ed25519".to_string(),
+            signer: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_string(),
+            hash: openclaw_crypto::HashRef {
+                algo: "sha-256".to_string(),
+                value: "abc123".to_string(),
+            },
+            artifact: openclaw_crypto::ArtifactInfo {
+                name: "test.txt".to_string(),
+                size: 100,
+            },
+            signature: "YmFzZTY0c2ln".to_string(),
+            timestamp: "2026-01-01T00:00:00Z".to_string(),
+            metadata: None,
+        };
+
+        let result = verify_envelope_signature(&envelope);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid envelope type"));
+    }
+
+    #[test]
+    fn test_verify_envelope_invalid_algo() {
+        let envelope = SignatureEnvelopeV1 {
+            version: "1.0".to_string(),
+            envelope_type: "signature-envelope".to_string(),
+            algo: "rsa".to_string(),
+            signer: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_string(),
+            hash: openclaw_crypto::HashRef {
+                algo: "sha-256".to_string(),
+                value: "abc123".to_string(),
+            },
+            artifact: openclaw_crypto::ArtifactInfo {
+                name: "test.txt".to_string(),
+                size: 100,
+            },
+            signature: "YmFzZTY0c2ln".to_string(),
+            timestamp: "2026-01-01T00:00:00Z".to_string(),
+            metadata: None,
+        };
+
+        let result = verify_envelope_signature(&envelope);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Unsupported signature algorithm"));
+    }
+
+    #[test]
+    fn test_verify_envelope_invalid_hash_algo() {
+        let envelope = SignatureEnvelopeV1 {
+            version: "1.0".to_string(),
+            envelope_type: "signature-envelope".to_string(),
+            algo: "ed25519".to_string(),
+            signer: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_string(),
+            hash: openclaw_crypto::HashRef {
+                algo: "sha-512".to_string(),
+                value: "abc123".to_string(),
+            },
+            artifact: openclaw_crypto::ArtifactInfo {
+                name: "test.txt".to_string(),
+                size: 100,
+            },
+            signature: "YmFzZTY0c2ln".to_string(),
+            timestamp: "2026-01-01T00:00:00Z".to_string(),
+            metadata: None,
+        };
+
+        let result = verify_envelope_signature(&envelope);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Unsupported hash algorithm"));
+    }
+
+    #[test]
+    fn test_verify_envelope_invalid_did() {
+        let envelope = SignatureEnvelopeV1 {
+            version: "1.0".to_string(),
+            envelope_type: "signature-envelope".to_string(),
+            algo: "ed25519".to_string(),
+            signer: "invalid-did-format".to_string(),
+            hash: openclaw_crypto::HashRef {
+                algo: "sha-256".to_string(),
+                value: "abc123".to_string(),
+            },
+            artifact: openclaw_crypto::ArtifactInfo {
+                name: "test.txt".to_string(),
+                size: 100,
+            },
+            signature: "YmFzZTY0c2ln".to_string(),
+            timestamp: "2026-01-01T00:00:00Z".to_string(),
+            metadata: None,
+        };
+
+        let result = verify_envelope_signature(&envelope);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid DID"));
+    }
+
+    #[test]
+    fn test_verify_envelope_invalid_base64_signature() {
+        let envelope = SignatureEnvelopeV1 {
+            version: "1.0".to_string(),
+            envelope_type: "signature-envelope".to_string(),
+            algo: "ed25519".to_string(),
+            signer: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_string(),
+            hash: openclaw_crypto::HashRef {
+                algo: "sha-256".to_string(),
+                value: "abc123".to_string(),
+            },
+            artifact: openclaw_crypto::ArtifactInfo {
+                name: "test.txt".to_string(),
+                size: 100,
+            },
+            signature: "not-valid-base64!!!".to_string(),
+            timestamp: "2026-01-01T00:00:00Z".to_string(),
+            metadata: None,
+        };
+
+        let result = verify_envelope_signature(&envelope);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid base64 signature"));
+    }
+
+    #[test]
+    fn test_verify_envelope_wrong_signature_length() {
+        let envelope = SignatureEnvelopeV1 {
+            version: "1.0".to_string(),
+            envelope_type: "signature-envelope".to_string(),
+            algo: "ed25519".to_string(),
+            signer: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_string(),
+            hash: openclaw_crypto::HashRef {
+                algo: "sha-256".to_string(),
+                value: "abc123".to_string(),
+            },
+            artifact: openclaw_crypto::ArtifactInfo {
+                name: "test.txt".to_string(),
+                size: 100,
+            },
+            signature: "YWJj".to_string(), // Only 3 bytes when decoded
+            timestamp: "2026-01-01T00:00:00Z".to_string(),
+            metadata: None,
+        };
+
+        let result = verify_envelope_signature(&envelope);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid signature length"));
     }
 }
