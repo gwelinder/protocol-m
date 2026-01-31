@@ -78,8 +78,14 @@ fn main() {
 
 fn handle_identity(action: IdentityAction) -> anyhow::Result<()> {
     match action {
-        IdentityAction::Init { force: _ } => {
-            println!("Identity init placeholder");
+        IdentityAction::Init { force } => {
+            let did = keystore::init_identity(force)?;
+            println!("Identity initialized successfully!");
+            println!();
+            println!("Your DID: {}", did);
+            println!();
+            println!("Your identity files are stored in ~/.openclaw/identity/");
+            println!("Keep your passphrase safe - it cannot be recovered!");
             Ok(())
         }
         IdentityAction::Show => {
