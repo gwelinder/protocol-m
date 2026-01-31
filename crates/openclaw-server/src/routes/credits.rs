@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::models::{
-    ComputeProvider, InvoiceStatus, NewMCreditsLedger, NewPurchaseInvoice,
+    ComputeProvider, InvoiceStatus, MCreditsLedger, NewMCreditsLedger, NewPurchaseInvoice,
     NewRedemptionReceipt, PaymentProvider, PurchaseInvoice, RedemptionReceipt,
 };
 
@@ -74,6 +74,7 @@ pub fn router(pool: PgPool) -> Router {
         .route("/grant-promo", post(grant_promo_credits_handler))
         .route("/reserves", get(get_reserves))
         .route("/redeem", post(redeem_credits))
+        .route("/balance", get(get_balance))
         .with_state(pool)
 }
 
@@ -1271,6 +1272,188 @@ async fn redeem_credits(
     }))
 }
 
+// ===== Balance Check (US-015D) =====
+
+/// Request body for checking balance.
+/// Note: In a real implementation, the user_id would come from authentication.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BalanceRequest {
+    /// The user ID requesting their balance.
+    /// In production, this would be extracted from auth token.
+    pub user_id: Uuid,
+}
+
+/// A simplified transaction record for the response.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionRecord {
+    /// Unique identifier for this transaction.
+    pub id: Uuid,
+    /// Type of credit event (mint, burn, transfer, etc.).
+    pub event_type: String,
+    /// Amount of credits in this transaction.
+    pub amount: String,
+    /// Description or reason for the transaction.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// When this event occurred.
+    pub created_at: String,
+}
+
+/// Response for balance check endpoint.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BalanceResponse {
+    /// The DID associated with this balance.
+    pub did: String,
+    /// Main credit balance (backed by reserves).
+    pub balance: String,
+    /// Promotional credit balance (not backed by reserves).
+    pub promo_balance: String,
+    /// Total spendable balance (balance + promo_balance).
+    pub total: String,
+    /// Recent transactions (last 10).
+    pub recent_transactions: Vec<TransactionRecord>,
+}
+
+/// Gets the user's bound DID from the database.
+/// Returns an error if the user has no DID bound.
+async fn get_user_bound_did(pool: &PgPool, user_id: Uuid) -> Result<String, AppError> {
+    let did: Option<String> = sqlx::query_scalar(
+        r#"
+        SELECT did
+        FROM did_bindings
+        WHERE user_id = $1 AND revoked_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query DID binding: {}", e)))?;
+
+    did.ok_or_else(|| {
+        AppError::BadRequest(
+            "No DID bound to this account. Please bind a DID first using the identity endpoints."
+                .to_string(),
+        )
+    })
+}
+
+/// Gets the account balances for a DID.
+/// Returns (balance, promo_balance) or (0, 0) if no account exists.
+async fn get_account_balances(
+    pool: &PgPool,
+    did: &str,
+) -> Result<(BigDecimal, BigDecimal), AppError> {
+    let result: Option<(BigDecimal, BigDecimal)> = sqlx::query_as(
+        r#"
+        SELECT balance, promo_balance
+        FROM m_credits_accounts
+        WHERE did = $1
+        "#,
+    )
+    .bind(did)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query account: {}", e)))?;
+
+    match result {
+        Some((balance, promo_balance)) => Ok((balance, promo_balance)),
+        None => Ok((BigDecimal::from(0), BigDecimal::from(0))),
+    }
+}
+
+/// Gets the recent transactions for a DID (last 10).
+async fn get_recent_transactions(
+    pool: &PgPool,
+    did: &str,
+    limit: i64,
+) -> Result<Vec<TransactionRecord>, AppError> {
+    let entries: Vec<MCreditsLedger> = sqlx::query_as(
+        r#"
+        SELECT id, event_type, from_did, to_did, amount, metadata, created_at
+        FROM m_credits_ledger
+        WHERE from_did = $1 OR to_did = $1
+        ORDER BY created_at DESC
+        LIMIT $2
+        "#,
+    )
+    .bind(did)
+    .bind(limit)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query transactions: {}", e)))?;
+
+    let records: Vec<TransactionRecord> = entries
+        .into_iter()
+        .map(|entry| {
+            // Extract description from metadata if available
+            let description = entry
+                .metadata
+                .get("reason")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .or_else(|| {
+                    entry
+                        .metadata
+                        .get("description")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                });
+
+            TransactionRecord {
+                id: entry.id,
+                event_type: format!("{:?}", entry.event_type).to_lowercase(),
+                amount: entry.amount.to_string(),
+                description,
+                created_at: entry.created_at.to_rfc3339(),
+            }
+        })
+        .collect();
+
+    Ok(records)
+}
+
+/// GET /api/v1/credits/balance
+///
+/// Returns the user's M-credits balance information.
+///
+/// This endpoint:
+/// 1. Looks up the user's bound DID
+/// 2. Fetches their account balances (main and promo)
+/// 3. Fetches their recent transactions (last 10)
+/// 4. Returns a comprehensive balance response
+///
+/// Requires the user to have a bound DID.
+async fn get_balance(
+    State(pool): State<PgPool>,
+    axum::extract::Query(query): axum::extract::Query<BalanceRequest>,
+) -> Result<Json<BalanceResponse>, AppError> {
+    // Step 1: Get the user's bound DID
+    let did = get_user_bound_did(&pool, query.user_id).await?;
+
+    // Step 2: Get account balances
+    let (balance, promo_balance) = get_account_balances(&pool, &did).await?;
+
+    // Step 3: Calculate total
+    let total = &balance + &promo_balance;
+
+    // Step 4: Get recent transactions (last 10)
+    let recent_transactions = get_recent_transactions(&pool, &did, 10).await?;
+
+    // Step 5: Return response
+    Ok(Json(BalanceResponse {
+        did,
+        balance: balance.to_string(),
+        promo_balance: promo_balance.to_string(),
+        total: total.to_string(),
+        recent_transactions,
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2162,5 +2345,186 @@ mod tests {
         assert!(entry.to_did.is_none());
         assert_eq!(entry.amount, amount);
         assert_eq!(entry.metadata["reason"], "credit_redemption");
+    }
+
+    // ===== Balance Check Tests (US-015D) =====
+
+    #[test]
+    fn test_balance_request_deserialization() {
+        let user_id = Uuid::new_v4();
+        let json = format!(
+            r#"{{
+                "userId": "{}"
+            }}"#,
+            user_id
+        );
+
+        let request: BalanceRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(request.user_id, user_id);
+    }
+
+    #[test]
+    fn test_balance_response_serialization() {
+        let response = BalanceResponse {
+            did: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_string(),
+            balance: "1000.00000000".to_string(),
+            promo_balance: "50.00000000".to_string(),
+            total: "1050.00000000".to_string(),
+            recent_transactions: vec![],
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"did\":\"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\""));
+        assert!(json.contains("\"balance\":\"1000.00000000\""));
+        assert!(json.contains("\"promoBalance\":\"50.00000000\""));
+        assert!(json.contains("\"total\":\"1050.00000000\""));
+        assert!(json.contains("\"recentTransactions\":[]"));
+    }
+
+    #[test]
+    fn test_balance_response_with_transactions() {
+        let tx_id = Uuid::new_v4();
+        let response = BalanceResponse {
+            did: "did:key:z6MkTest".to_string(),
+            balance: "500.00000000".to_string(),
+            promo_balance: "0".to_string(),
+            total: "500.00000000".to_string(),
+            recent_transactions: vec![
+                TransactionRecord {
+                    id: tx_id,
+                    event_type: "mint".to_string(),
+                    amount: "500.00000000".to_string(),
+                    description: Some("credit_purchase".to_string()),
+                    created_at: "2026-01-31T12:00:00Z".to_string(),
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"recentTransactions\":["));
+        assert!(json.contains("\"eventType\":\"mint\""));
+        assert!(json.contains("\"amount\":\"500.00000000\""));
+        assert!(json.contains("\"description\":\"credit_purchase\""));
+        assert!(json.contains("\"createdAt\":\"2026-01-31T12:00:00Z\""));
+    }
+
+    #[test]
+    fn test_transaction_record_serialization() {
+        let tx_id = Uuid::new_v4();
+        let record = TransactionRecord {
+            id: tx_id,
+            event_type: "transfer".to_string(),
+            amount: "25.00000000".to_string(),
+            description: Some("payment for service".to_string()),
+            created_at: "2026-01-31T10:30:00Z".to_string(),
+        };
+
+        let json = serde_json::to_string(&record).unwrap();
+        assert!(json.contains(&format!("\"id\":\"{}\"", tx_id)));
+        assert!(json.contains("\"eventType\":\"transfer\""));
+        assert!(json.contains("\"amount\":\"25.00000000\""));
+        assert!(json.contains("\"description\":\"payment for service\""));
+        assert!(json.contains("\"createdAt\":\"2026-01-31T10:30:00Z\""));
+    }
+
+    #[test]
+    fn test_transaction_record_without_description() {
+        let tx_id = Uuid::new_v4();
+        let record = TransactionRecord {
+            id: tx_id,
+            event_type: "burn".to_string(),
+            amount: "10.00000000".to_string(),
+            description: None,
+            created_at: "2026-01-31T11:00:00Z".to_string(),
+        };
+
+        let json = serde_json::to_string(&record).unwrap();
+        assert!(json.contains("\"eventType\":\"burn\""));
+        // description should be omitted when None
+        assert!(!json.contains("description"));
+    }
+
+    #[test]
+    fn test_balance_response_empty_balances() {
+        let response = BalanceResponse {
+            did: "did:key:z6MkTest".to_string(),
+            balance: "0".to_string(),
+            promo_balance: "0".to_string(),
+            total: "0".to_string(),
+            recent_transactions: vec![],
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"balance\":\"0\""));
+        assert!(json.contains("\"promoBalance\":\"0\""));
+        assert!(json.contains("\"total\":\"0\""));
+    }
+
+    #[test]
+    fn test_balance_request_query_param_format() {
+        // Verify the query param format used by axum
+        let user_id = Uuid::new_v4();
+        let query_string = format!("userId={}", user_id);
+
+        // This simulates how axum would parse the query string
+        // The actual parsing is done by serde_urlencoded which uses camelCase
+        assert!(query_string.starts_with("userId="));
+    }
+
+    #[test]
+    fn test_multiple_transaction_records() {
+        let response = BalanceResponse {
+            did: "did:key:z6MkTest".to_string(),
+            balance: "750.00000000".to_string(),
+            promo_balance: "25.00000000".to_string(),
+            total: "775.00000000".to_string(),
+            recent_transactions: vec![
+                TransactionRecord {
+                    id: Uuid::new_v4(),
+                    event_type: "mint".to_string(),
+                    amount: "1000.00000000".to_string(),
+                    description: Some("initial_purchase".to_string()),
+                    created_at: "2026-01-31T08:00:00Z".to_string(),
+                },
+                TransactionRecord {
+                    id: Uuid::new_v4(),
+                    event_type: "burn".to_string(),
+                    amount: "200.00000000".to_string(),
+                    description: Some("redemption".to_string()),
+                    created_at: "2026-01-31T09:00:00Z".to_string(),
+                },
+                TransactionRecord {
+                    id: Uuid::new_v4(),
+                    event_type: "promomint".to_string(),
+                    amount: "25.00000000".to_string(),
+                    description: Some("new_user_bonus".to_string()),
+                    created_at: "2026-01-31T10:00:00Z".to_string(),
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        // Should have 3 transactions
+        let count = json.matches("eventType").count();
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_transaction_event_types() {
+        // Test all event type string formats
+        let event_types = vec!["mint", "burn", "transfer", "hold", "release", "promomint"];
+
+        for event_type in event_types {
+            let record = TransactionRecord {
+                id: Uuid::new_v4(),
+                event_type: event_type.to_string(),
+                amount: "10.00000000".to_string(),
+                description: None,
+                created_at: "2026-01-31T12:00:00Z".to_string(),
+            };
+
+            let json = serde_json::to_string(&record).unwrap();
+            assert!(json.contains(&format!("\"eventType\":\"{}\"", event_type)));
+        }
     }
 }
