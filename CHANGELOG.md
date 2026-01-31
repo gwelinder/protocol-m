@@ -513,6 +513,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Prompts for rejection reason interactively or accepts via --reason flag
   - 4 new unit tests for rejection routes, 442 total tests pass
 
+#### Kill Switch System (US-019A) — Emergency Stop
+- US-019A: Created agent_suspensions table for kill switch functionality:
+  - Migration 20260131000023 with agent_suspensions table
+  - Fields: id (UUID PK), operator_did, reason, suspended_at, resumed_at (nullable), metadata (JSONB), resumed_by_did
+  - Indexes on operator_did and active suspensions (WHERE resumed_at IS NULL)
+  - AgentSuspension and NewAgentSuspension model types with helper methods
+  - Metadata accessors for bounties_cancelled, approval_requests_cancelled, escrow_refunded
+  - 9 new unit tests for model functionality, 451 total server tests pass
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation

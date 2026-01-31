@@ -1,5 +1,6 @@
 //! Database models for Protocol M.
 
+pub mod agent_suspension;
 pub mod approval_request;
 pub mod artifact;
 pub mod artifact_derivation;
@@ -19,6 +20,7 @@ pub mod redemption_receipt;
 pub mod reputation_event;
 pub mod user_policy;
 
+pub use agent_suspension::{AgentSuspension, NewAgentSuspension};
 pub use approval_request::{
     ApprovalActionType, ApprovalRequest, ApprovalRequestStatus, NewApprovalRequest,
     APPROVAL_WINDOW_HOURS,

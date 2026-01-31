@@ -1460,8 +1460,8 @@
         "Typecheck passes"
       ],
       "priority": 88,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000023 with agent_suspensions table; includes id (UUID PK), operator_did, reason, suspended_at, resumed_at (nullable), metadata (JSONB), resumed_by_did (nullable); indexes on operator_did and active suspensions; AgentSuspension/NewAgentSuspension models with helper methods; 9 unit tests; 451 server tests pass"
     },
     {
       "id": "US-019B",

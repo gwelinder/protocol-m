@@ -1195,3 +1195,18 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - Bounty status changes to Cancelled (not Rejected) since Cancelled is an existing status enum value
   - 4 new rejection tests; 442 total tests pass
 ---
+
+## 2026-01-31 - US-019A
+- What was implemented: Created agent_suspensions table for kill switch functionality
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000023_create_agent_suspensions_table.sql` - New migration with agent_suspensions table (id, operator_did, reason, suspended_at, resumed_at, metadata, resumed_by_did), indexes on operator_did and active suspensions
+  - `crates/openclaw-server/src/models/agent_suspension.rs` - New model with AgentSuspension and NewAgentSuspension structs, helper methods (is_active, is_resumed, duration_seconds, bounties_cancelled, approval_requests_cancelled, escrow_refunded), factory methods
+  - `crates/openclaw-server/src/models.rs` - Added agent_suspension module and re-exports
+- **Learnings for future iterations:**
+  - Kill switch table needs metadata JSONB for tracking what was cancelled (bounties, approvals, escrow amounts)
+  - resumed_by_did tracks who lifted the suspension (for audit trail)
+  - Use partial index `WHERE resumed_at IS NULL` for efficient active suspension lookups
+  - Helper methods for metadata extraction support optional fields gracefully
+  - 9 new unit tests in agent_suspension module covering serialization, deserialization, status helpers, duration calculation, metadata accessors
+  - 451 total server tests pass
+---
