@@ -1,5 +1,6 @@
 //! Database models for Protocol M.
 
+pub mod approval_request;
 pub mod artifact;
 pub mod artifact_derivation;
 pub mod bounty;
@@ -17,6 +18,10 @@ pub mod purchase_invoice;
 pub mod redemption_receipt;
 pub mod reputation_event;
 
+pub use approval_request::{
+    ApprovalActionType, ApprovalRequest, ApprovalRequestStatus, NewApprovalRequest,
+    APPROVAL_WINDOW_HOURS,
+};
 pub use artifact::{Artifact, NewArtifact};
 pub use artifact_derivation::{ArtifactDerivation, NewArtifactDerivation};
 pub use bounty::{Bounty, BountyClosureType, BountyStatus, NewBounty};
