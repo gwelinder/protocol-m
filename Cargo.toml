@@ -3,4 +3,5 @@ resolver = "2"
 members = [
     "crates/openclaw-crypto",
     "crates/openclaw-cli",
+    "crates/openclaw-server",
 ]

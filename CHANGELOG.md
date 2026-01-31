@@ -41,6 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-004A: Defined manifest data structure (ContributionManifest, ArtifactReference types)
 - US-004B: Implemented manifest export logic (export_manifest function with 5 unit tests)
 - US-004C: Implemented manifest export command (--output flag, --path args, directory scanning)
+
+#### Attribution Database (US-005A) — Server Layer
+- US-005A: Created openclaw-server crate with axum 0.8, sqlx 0.8, PostgreSQL
+- US-005A: Created artifacts table migration with UUID PK, hash, DID, timestamp, metadata (JSONB), signature
+- US-005A: Added database pool creation and migration runner
+- US-005A: Defined Artifact and NewArtifact model types with sqlx FromRow
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
