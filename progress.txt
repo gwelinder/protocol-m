@@ -1,0 +1,829 @@
+# Protocol M - Ralph Execution Log
+
+This file tracks autonomous agent iterations implementing Protocol M.
+
+## Codebase Patterns
+
+- Rust workspace structure: root Cargo.toml defines workspace members in `crates/` subdirectory
+- Use `source "$HOME/.cargo/env"` before running cargo commands if cargo is not in PATH
+- When adding rand_core, match the version ed25519-dalek uses (0.6.x) to avoid trait compatibility errors
+- Server stack: openclaw-server uses axum 0.8 + sqlx 0.8 + PostgreSQL for the API layer
+- Database migrations are in `crates/openclaw-server/migrations/` as numbered SQL files
+- Use thiserror v2 for error derives; implement IntoResponse for axum error handling
+- Frontend stack: Next.js 14 + React 18 + TypeScript in `web/` directory
+- Frontend components in `web/src/components/`, utilities in `web/src/lib/`
+- Use 'use client' directive for interactive components; typecheck with `npm run typecheck` in web/
+
+---
+
+## Context
+
+**Project:** Protocol M - Agent Identity & Attribution Platform
+**Stack:**
+- OpenClaw CLI: Rust (ed25519-dalek, serde_jcs, clap, age encryption)
+- Moltbook: TBD (likely TypeScript/Node.js)
+- ClawdHub: TBD
+- Database: TBD (PostgreSQL recommended for JSONB support)
+
+**Key Architecture Decisions:**
+- Phase 1: Pure cryptography (no blockchain dependency)
+- Ed25519 signatures with RFC 8785 JCS canonicalization
+- DID format: did:key (multicodec 0xed01 + Base58BTC)
+- Private keys encrypted at rest with age
+- Signature verification must complete in <100ms
+
+**Quality Requirements:**
+- Typecheck must pass on all commits
+- Tests must pass where applicable
+- File permissions: identity dir 0700, keyfile 0600
+- No commits with failing CI
+
+**Important Files:**
+- `tasks/prd-protocol-m.md` - Comprehensive PRD (5 layers, 19 user stories)
+- `project.md` - Technical implementation specs
+- `prd.json` - Ralph task list (to be generated from Oracle-enhanced PRD)
+
+---
+
+## Iteration Log
+
+(Iterations will be appended below as Ralph executes)
+
+---
+
+## 2026-01-31 - US-001A
+- What was implemented: Created Rust workspace structure for OpenClaw
+- Files changed:
+  - `Cargo.toml` - Root workspace definition with members
+  - `Cargo.lock` - Dependency lockfile (auto-generated)
+  - `crates/openclaw-crypto/Cargo.toml` - Crypto library crate manifest
+  - `crates/openclaw-crypto/src/lib.rs` - Library entry point
+  - `crates/openclaw-cli/Cargo.toml` - CLI binary crate manifest
+  - `crates/openclaw-cli/src/main.rs` - Binary entry point
+- **Learnings for future iterations:**
+  - Rust was not pre-installed, had to install via rustup
+  - Need to source `$HOME/.cargo/env` to get cargo in PATH
+  - Workspace uses resolver = "2" for Rust 2021 edition compatibility
+---
+
+## 2026-01-31 - US-001B
+- What was implemented: Added core crypto dependencies to openclaw-crypto crate
+- Files changed:
+  - `crates/openclaw-crypto/Cargo.toml` - Added ed25519-dalek, serde, serde_json, serde_jcs, sha2, base64, bs58, anyhow
+  - `Cargo.lock` - Updated with 46 new dependency packages
+- **Learnings for future iterations:**
+  - ed25519-dalek v2 requires `features = ["rand_core"]` to enable random keypair generation via OsRng
+  - All dependencies compile cleanly with no version conflicts
+---
+
+## 2026-01-31 - US-001C
+- What was implemented: Defined signature envelope types for Protocol M
+- Files changed:
+  - `crates/openclaw-crypto/src/types.rs` - Created with HashRef, ArtifactInfo, and SignatureEnvelopeV1 structs
+  - `crates/openclaw-crypto/src/lib.rs` - Updated to export types module and re-export main types
+- **Learnings for future iterations:**
+  - Use `#[serde(rename = "type")]` for Rust reserved keywords in JSON serialization
+  - Use `#[serde(skip_serializing_if = "Option::is_none")]` to omit optional fields from JSON when None
+  - SignatureEnvelopeV1 has a `new()` constructor that sets version/type/algo defaults
+  - PartialEq and Eq are useful derives for testing envelope equality
+---
+
+## 2026-01-31 - US-001D
+- What was implemented: SHA-256 hashing utility for computing artifact hashes
+- Files changed:
+  - `crates/openclaw-crypto/src/hash.rs` - New module with sha256_hex function
+  - `crates/openclaw-crypto/Cargo.toml` - Added hex = "0.4" dependency
+  - `crates/openclaw-crypto/src/lib.rs` - Added hash module export and re-export of sha256_hex
+  - `Cargo.lock` - Updated with hex dependency
+- **Learnings for future iterations:**
+  - Use `hex::encode()` from the hex crate for lowercase hex encoding
+  - sha2::Sha256 implements the Digest trait - use `new()`, `update()`, `finalize()` pattern
+  - SHA-256 produces 32 bytes (256 bits), which encodes to 64 hex characters
+---
+
+## 2026-01-31 - US-001E
+- What was implemented: JCS (JSON Canonicalization Scheme) RFC 8785 implementation
+- Files changed:
+  - `crates/openclaw-crypto/src/jcs.rs` - New module with jcs_canonical_bytes function
+  - `crates/openclaw-crypto/src/lib.rs` - Added jcs module export and re-export of jcs_canonical_bytes
+- **Learnings for future iterations:**
+  - serde_jcs::to_string produces RFC 8785 compliant canonical JSON with sorted keys
+  - JCS sorts all object keys lexicographically, including nested objects
+  - The function returns UTF-8 bytes directly, ready for signing
+  - Tests verify field order independence - same content produces same bytes regardless of input order
+---
+
+## 2026-01-31 - US-001F
+- What was implemented: DID key derivation for Ed25519 public keys
+- Files changed:
+  - `crates/openclaw-crypto/src/did.rs` - New module with pubkey_to_did function
+  - `crates/openclaw-crypto/src/lib.rs` - Added did module export and re-export of pubkey_to_did
+- **Learnings for future iterations:**
+  - DID format for Ed25519: did:key:z + Base58BTC(0xed01 + 32-byte pubkey)
+  - Multicodec prefix 0xed01 identifies Ed25519 keys (0xed = codec, 0x01 = varint)
+  - The "z" in did:key:z is the multibase prefix for Base58BTC encoding
+  - bs58::encode().into_string() produces the Base58BTC encoded string
+  - SigningKey::from_bytes(&seed) creates deterministic keys for testing
+---
+
+## 2026-01-31 - US-001G
+- What was implemented: Keypair generation using ed25519-dalek with OsRng
+- Files changed:
+  - `crates/openclaw-crypto/src/keys.rs` - New module with generate_keypair function
+  - `crates/openclaw-crypto/Cargo.toml` - Added rand_core = { version = "0.6", features = ["getrandom"] }
+  - `crates/openclaw-crypto/src/lib.rs` - Added keys module export and re-export of generate_keypair
+  - `Cargo.lock` - Updated with rand_core dependency
+- **Learnings for future iterations:**
+  - rand_core version must match ed25519-dalek's dependency (0.6.x, not 0.9.x) to avoid trait mismatch errors
+  - Use rand_core with "getrandom" feature for OsRng on version 0.6.x
+  - SigningKey::generate(&mut OsRng) creates cryptographically secure random keypairs
+  - VerifyingKey is obtained via signing_key.verifying_key()
+---
+
+## 2026-01-31 - US-001H
+- What was implemented: Added age encryption and CLI dependencies to openclaw-cli crate
+- Files changed:
+  - `crates/openclaw-cli/Cargo.toml` - Added age 0.10, rand 0.8, clap 4 (with derive), openclaw-crypto path, anyhow 1
+  - `Cargo.lock` - Updated with 110 new dependency packages
+- **Learnings for future iterations:**
+  - age 0.10 brings in significant dependencies (futures, i18n, etc.) - the CLI binary will be larger
+  - clap with derive feature enables using proc macros for CLI parsing
+  - rand 0.8 will be used for age's encryption needs (distinct from rand_core 0.6 used by ed25519-dalek)
+  - age 0.11.2 is available but we're using 0.10 per PRD spec
+---
+
+## 2026-01-31 - US-001I
+- What was implemented: Private key encryption using age encryption library
+- Files changed:
+  - `crates/openclaw-cli/src/keystore.rs` - New module with encrypt_key function
+  - `crates/openclaw-cli/src/main.rs` - Added keystore module import
+- **Learnings for future iterations:**
+  - age::Encryptor::with_user_passphrase takes SecretString from age::secrecy
+  - Encryption flow: Encryptor → wrap_output(buffer) → write_all(data) → finish()
+  - age uses random salt so same input+passphrase produces different encrypted output each time
+  - Decryption uses age::Decryptor::new() which returns an enum - must match on Passphrase variant
+---
+
+## 2026-01-31 - US-001J
+- What was implemented: Private key decryption using age decryption library
+- Files changed:
+  - `crates/openclaw-cli/src/keystore.rs` - Added public decrypt_key function and wrong passphrase test
+- **Learnings for future iterations:**
+  - Decryption flow: Decryptor::new(data) → match Passphrase variant → decrypt(SecretString) → read_to_end
+  - Use .map_err() instead of .context() for the decrypt() call to provide a user-friendly "Incorrect passphrase" message
+  - The decrypt() method returns DecryptError which doesn't implement std::error::Error in a way that works with anyhow, so map_err is cleaner
+  - The test module was using a local decrypt_key function - promoted it to public and removed the duplicate
+---
+
+## 2026-01-31 - US-001K
+- What was implemented: File permission checks for secure identity storage
+- Files changed:
+  - `crates/openclaw-cli/Cargo.toml` - Added tempfile dev dependency for tests
+  - `crates/openclaw-cli/src/keystore.rs` - Added check_permissions function and permissions module
+  - `Cargo.lock` - Updated with tempfile and dependencies
+- **Learnings for future iterations:**
+  - Use `metadata.permissions().mode() & 0o777` to extract just the permission bits (ignoring file type bits)
+  - The expression `mode & !expected != 0` checks if any disallowed bits are set
+  - Use `#[cfg(unix)]` for platform-specific code, with `#[cfg(not(unix))]` fallback for Windows
+  - tempfile crate provides convenient temp directories that auto-cleanup
+  - On Unix, check_permissions takes an is_directory flag to select between 0o700 (dir) or 0o600 (file) expectations
+---
+
+## 2026-01-31 - US-001L
+- What was implemented: Identity initialization logic with encrypted key storage
+- Files changed:
+  - `crates/openclaw-cli/Cargo.toml` - Added serde, serde_json, and rpassword dependencies
+  - `crates/openclaw-cli/src/keystore.rs` - Added init_identity function, IdentityInfo struct, helper functions
+  - `Cargo.lock` - Updated with rpassword and related dependencies
+- **Learnings for future iterations:**
+  - rpassword crate provides secure passphrase prompting without terminal echo
+  - Use std::env::var("HOME") for Unix or "USERPROFILE" for Windows to get home directory
+  - SigningKey.to_bytes() returns the 32-byte Ed25519 seed, not the full 64-byte expanded key
+  - VerifyingKey.to_bytes() returns the 32-byte public key
+  - For ISO 8601 timestamps without external dependencies, can compute from SystemTime::UNIX_EPOCH
+  - The days_to_ymd algorithm converts days since epoch to calendar date (proleptic Gregorian calendar)
+  - init_identity returns the DID so it can be displayed to the user
+---
+
+## 2026-01-31 - US-001M
+- What was implemented: CLI scaffolding with clap for command routing
+- Files changed:
+  - `crates/openclaw-cli/src/main.rs` - Replaced placeholder with full clap CLI structure
+- **Learnings for future iterations:**
+  - Use `#[command(name = "openclaw")]` to set binary name in help output
+  - Use `#[command(version, about, long_about = None)]` for automatic --version and --help
+  - Nested subcommands use `#[command(subcommand)]` on enum variants with another enum
+  - `#[arg(short, long)]` adds both -f and --force flag variants
+  - clap's derive API handles all argument parsing and error messages automatically
+  - Handler functions return anyhow::Result<()> for consistent error handling
+---
+
+## 2026-01-31 - US-001N
+- What was implemented: Wired identity init command to CLI handler
+- Files changed:
+  - `crates/openclaw-cli/src/main.rs` - Connected handle_identity to keystore::init_identity, added success messages
+- **Learnings for future iterations:**
+  - The pattern is to update the match arm from placeholder `force: _` to `force` and call the keystore function
+  - Success messages should include: DID, file location hint, passphrase warning
+  - All 23 tests pass (8 CLI tests, 14 crypto tests, 1 doctest)
+---
+
+## 2026-01-31 - US-001O
+- What was implemented: Created golden test vector fixture with values matching SignatureEnvelopeV1
+- Files changed:
+  - `fixtures/golden_vectors.json` - Updated to match actual SignatureEnvelopeV1 structure (version "1.0", type "signature-envelope", signer field, timestamp field, hash.algo "sha-256")
+- **Learnings for future iterations:**
+  - The golden vector must use the exact same field names as SignatureEnvelopeV1 in types.rs (signer not did, timestamp not createdAt)
+  - Seed 9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60 is from RFC 8032 test vectors for reproducibility
+  - canonical_jcs must have signature field as empty string "" during canonicalization
+  - JCS sorts fields alphabetically: algo, artifact, hash, signature, signer, timestamp, type, version
+---
+
+## 2026-01-31 - US-001P
+- What was implemented: Integration test for golden vector validation
+- Files changed:
+  - `crates/openclaw-crypto/tests/golden.rs` - 6 tests: keypair_from_seed, did_derivation, file_hash, envelope_canonicalization, signature_generation, signature_verification
+- **Learnings for future iterations:**
+  - Use `concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/golden_vectors.json")` for relative path to fixtures
+  - Integration tests in tests/ directory are compiled as separate binaries
+  - Signature::from_bytes requires TryInto<[u8; 64]> conversion
+  - All 6 golden tests validate cross-implementation compatibility
+  - Total tests now: 8 CLI + 14 crypto unit + 6 golden integration + 1 doctest = 29 tests
+---
+
+## 2026-01-31 - US-002A
+- What was implemented: Envelope signing logic for creating SignatureEnvelopeV1
+- Files changed:
+  - `crates/openclaw-crypto/src/sign.rs` - New module with sign_artifact function and 4 unit tests
+  - `crates/openclaw-crypto/src/lib.rs` - Added sign module export and re-export of sign_artifact
+- **Learnings for future iterations:**
+  - sign_artifact takes SigningKey reference, avoids ownership transfer
+  - The function follows the 5-step process: hash → envelope → canonicalize → sign → insert
+  - BASE64_STANDARD from base64 crate for standard base64 encoding
+  - Tests verify both field values and signature validity via re-verification
+  - Total tests now: 8 CLI + 18 crypto unit + 6 golden + 1 doctest = 33 tests
+---
+
+## 2026-01-31 - US-002B
+- What was implemented: Metadata parsing for --meta CLI flag
+- Files changed:
+  - `crates/openclaw-cli/src/metadata.rs` - New module with parse_metadata function and 11 unit tests
+  - `crates/openclaw-cli/src/main.rs` - Added metadata module declaration
+- **Learnings for future iterations:**
+  - Use splitn(2, '=') to handle values containing equals signs
+  - Dot notation (a.b.c) creates nested JSON objects
+  - insert_nested navigates/creates intermediate objects recursively
+  - Handle conflict when scalar value exists but nested key is requested
+  - Total tests now: 19 CLI + 18 crypto + 6 golden + 1 doctest = 44 tests
+---
+
+## 2026-01-31 - US-002C, US-002D, US-002E
+- What was implemented: Complete sign command with normal and dry-run modes
+- Files changed:
+  - `crates/openclaw-cli/src/keystore.rs` - Added load_identity_info, load_signing_key, prompt_passphrase_single, made chrono_iso8601_now public
+  - `crates/openclaw-cli/src/main.rs` - Updated Sign command with --meta and --dry-run flags, implemented handle_sign
+  - `crates/openclaw-cli/Cargo.toml` - Added ed25519-dalek dependency
+- **Learnings for future iterations:**
+  - Load identity: identity.json for DID, root.key.enc for encrypted private key
+  - Decrypt key and construct SigningKey from 32-byte seed
+  - Use serde_json::to_string_pretty for readable output
+  - Normal mode: write to <file>.sig.json with 0644 perms, print success
+  - Dry-run mode: print JSON to stdout only, no file written
+  - These three stories are tightly coupled - implemented together
+---
+
+## 2026-01-31 - US-002F
+- What was implemented: Signing roundtrip integration tests
+- Files changed:
+  - `crates/openclaw-crypto/tests/roundtrip.rs` - 4 integration tests
+- **Learnings for future iterations:**
+  - test_signing_roundtrip: Generates identity, signs, verifies metadata and signature
+  - test_signing_roundtrip_with_metadata: Verifies metadata is preserved through signing
+  - test_tampered_content_fails_verification: Confirms hash/signature binding
+  - test_different_keys_produce_different_signatures: Validates key uniqueness
+  - Total tests now: 19 CLI + 18 crypto + 6 golden + 4 roundtrip + 1 doctest = 48 tests
+---
+
+## 2026-01-31 - US-003A
+- What was implemented: Envelope verification logic
+- Files changed:
+  - `crates/openclaw-crypto/src/verify.rs` - New module with verify_artifact function and 9 unit tests
+  - `crates/openclaw-crypto/src/lib.rs` - Added verify module export and re-export of verify_artifact
+- **Learnings for future iterations:**
+  - verify_artifact takes VerifyingKey reference (caller extracts from DID)
+  - Verification order: version → type → algo → hash → size → canonicalize → signature
+  - Clear error messages for each failure mode (hash mismatch, invalid signature, etc.)
+  - Test coverage includes: valid signature, wrong content, wrong key, bad version/type/algo, size mismatch, invalid base64, wrong signature length
+  - Total tests now: 19 CLI + 27 crypto + 6 golden + 4 roundtrip + 1 doctest = 57 tests
+---
+
+## 2026-01-31 - US-003B
+- What was implemented: DID to public key extraction (reverse of pubkey_to_did)
+- Files changed:
+  - `crates/openclaw-crypto/src/did.rs` - Added did_to_verifying_key function and 6 unit tests
+  - `crates/openclaw-crypto/src/lib.rs` - Added re-export of did_to_verifying_key
+- **Learnings for future iterations:**
+  - Strip "did:key:z" prefix, decode Base58BTC, verify 0xed01 multicodec, extract 32-byte key
+  - Error cases: invalid prefix, invalid Base58, too short, wrong multicodec, invalid key bytes
+  - Tested with golden vector DID to ensure cross-implementation compatibility
+  - Total tests now: 19 CLI + 33 crypto + 6 golden + 4 roundtrip + 2 doctests = 64 tests
+---
+
+## 2026-01-31 - US-003C
+- What was implemented: Verify command handler for CLI
+- Files changed:
+  - `crates/openclaw-cli/src/main.rs` - Updated Verify command with --sig flag, implemented handle_verify
+- **Learnings for future iterations:**
+  - Signature file defaults to <file>.sig.json if --sig not provided
+  - Load envelope JSON → parse SignatureEnvelopeV1 → extract DID → convert to VerifyingKey → read file → verify
+  - Success outputs: "Verification successful!", Signer DID, Timestamp
+  - Clear error messages for: missing sig file, invalid envelope, invalid DID, verification failure
+---
+
+## 2026-01-31 - US-003D
+- What was implemented: Colored verification output for CLI
+- Files changed:
+  - `crates/openclaw-cli/Cargo.toml` - Added colored v2 dependency
+  - `crates/openclaw-cli/src/main.rs` - Updated handle_verify with colored output, added truncate_did helper
+- **Learnings for future iterations:**
+  - colored crate provides .green(), .red(), .bold() trait methods on strings
+  - Success: green ✓ with signer DID (truncated), timestamp, filename
+  - Failure: red ✗ with error message
+  - truncate_did shows first 20 chars + "..." + last 8 chars for long DIDs
+---
+
+## 2026-01-31 - US-003E
+- What was implemented: Local identity indicator in verification output
+- Files changed:
+  - `crates/openclaw-cli/src/main.rs` - Added identity check after successful verification
+- **Learnings for future iterations:**
+  - Load local identity with keystore::load_identity_info()
+  - Compare local_identity.did with envelope.signer
+  - Three states: "Local Identity" (cyan), "External Identity" (yellow), "No local identity" (dimmed)
+  - Gracefully handles missing local identity (doesn't error, just shows indicator)
+---
+
+## 2026-01-31 - US-003F
+- What was implemented: Improved tamper detection test using verify_artifact
+- Files changed:
+  - `crates/openclaw-crypto/tests/roundtrip.rs` - Updated test_tampered_content_fails_verification
+- **Learnings for future iterations:**
+  - Modified test to use verify_artifact function instead of raw signature verification
+  - Test changes one byte of content and verifies hash mismatch error
+  - Error message assertion checks for "Hash mismatch" or "hash" in error text
+  - This properly tests the high-level API rather than low-level primitives
+---
+
+## 2026-01-31 - US-004A
+- What was implemented: Manifest data structures for contribution aggregation
+- Files changed:
+  - `crates/openclaw-crypto/src/types.rs` - Added ArtifactReference and ContributionManifest structs with tests
+  - `crates/openclaw-crypto/src/lib.rs` - Added re-exports for new types
+- **Learnings for future iterations:**
+  - ArtifactReference captures hash, signature, timestamp, and optional metadata from envelopes
+  - ContributionManifest aggregates multiple ArtifactReferences with a DID and timestamp
+  - from_envelope() helper on ArtifactReference makes it easy to convert existing envelopes
+  - The manifest itself will be wrapped in SignatureEnvelopeV1 in US-004B (export logic)
+  - Total tests now: 19 CLI + 44 crypto + 6 golden + 4 roundtrip + 2 doctests = 75 tests
+---
+
+## 2026-01-31 - US-004B
+- What was implemented: Manifest export logic for creating signed contribution manifests
+- Files changed:
+  - `crates/openclaw-crypto/src/manifest.rs` - New module with export_manifest function and 5 unit tests
+  - `crates/openclaw-crypto/src/lib.rs` - Added manifest module export and re-export of export_manifest
+- **Learnings for future iterations:**
+  - export_manifest takes SigningKey, DID, artifact references, and timestamp
+  - The manifest is serialized to JSON, hashed, and wrapped in SignatureEnvelopeV1
+  - envelope_type is set to "contribution-manifest" to distinguish from regular signatures
+  - The manifest content is stored in the metadata field for easy extraction
+  - The artifact.name is "manifest.json" for manifest envelopes
+  - Total tests now: 19 CLI + 48 crypto + 6 golden + 4 roundtrip + 2 doctests = 79 tests
+---
+
+## 2026-01-31 - US-004C
+- What was implemented: Manifest export command wired to CLI
+- Files changed:
+  - `crates/openclaw-cli/src/main.rs` - Updated ManifestAction::Export with --output and paths args, implemented handle_manifest_export
+- **Learnings for future iterations:**
+  - ManifestAction::Export takes Vec<String> paths for explicit .sig.json files and --output for destination
+  - If no paths provided, scans ~/.openclaw/signatures/ directory for .sig.json files
+  - Uses ArtifactReference::from_envelope() to convert SignatureEnvelopeV1 to artifact refs
+  - get_signatures_dir() and scan_signature_files() are helper functions for directory scanning
+  - Output uses colored crate for success message with green checkmark
+  - Total tests remain 74 (no new tests added - command functionality only)
+---
+
+## 2026-01-31 - US-005A
+- What was implemented: Created openclaw-server crate with artifacts database table migration
+- Files changed:
+  - `Cargo.toml` - Added openclaw-server to workspace members
+  - `crates/openclaw-server/Cargo.toml` - New crate with axum, sqlx, tokio, chrono, uuid dependencies
+  - `crates/openclaw-server/src/lib.rs` - Library entry point with module exports
+  - `crates/openclaw-server/src/error.rs` - AppError type implementing IntoResponse for axum
+  - `crates/openclaw-server/src/db.rs` - Database pool creation and migration runner
+  - `crates/openclaw-server/src/models.rs` - Models module declaration
+  - `crates/openclaw-server/src/models/artifact.rs` - Artifact and NewArtifact structs with FromRow
+  - `crates/openclaw-server/migrations/20260131000001_create_artifacts_table.sql` - Full migration
+- **Learnings for future iterations:**
+  - Using axum 0.8 + sqlx 0.8 for the server layer (Rust-native, async, PostgreSQL)
+  - Migration creates artifacts table with: id (UUID PK), hash, did, timestamp, metadata (JSONB), signature, created_at
+  - Indexes on hash, did, and timestamp for fast lookups
+  - sqlx uses compile-time query checking with `sqlx::query!` macro (requires DATABASE_URL at compile time)
+  - `sqlx::migrate!("./migrations")` auto-discovers and runs SQL migrations
+  - thiserror v2 used for error derives; axum's IntoResponse trait enables custom error responses
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 1 server + 2 doctests = 75 tests
+---
+
+## 2026-01-31 - US-005B
+- What was implemented: Artifact registration endpoint POST /api/v1/artifacts
+- Files changed:
+  - `crates/openclaw-server/src/routes/mod.rs` - New module with router setup, api_v1_routes helper
+  - `crates/openclaw-server/src/routes/artifacts.rs` - POST endpoint handler, timestamp parsing, DB insertion
+  - `crates/openclaw-server/src/lib.rs` - Added routes module export and create_router re-export
+  - `crates/openclaw-server/src/models.rs` - Added NewArtifact re-export
+- **Learnings for future iterations:**
+  - axum Router uses `.with_state(pool)` to share PgPool across handlers
+  - Use `sqlx::query_as::<_, ModelType>` with RETURNING clause to get inserted row back
+  - DateTime::parse_from_rfc3339 handles ISO 8601 timestamps with timezone offsets
+  - chrono::Datelike trait must be imported explicitly in test modules to use year/month/day methods
+  - Signature verification is separate concern (US-005C) - registration stores but doesn't verify yet
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 4 server + 2 doctests = 78 tests
+---
+
+## 2026-01-31 - US-005C
+- What was implemented: Artifact registration validation with signature verification
+- Files changed:
+  - `crates/openclaw-server/Cargo.toml` - Added ed25519-dalek and base64 dependencies
+  - `crates/openclaw-server/src/routes/artifacts.rs` - Added validation functions and 12 new tests
+- **Learnings for future iterations:**
+  - validate_envelope() checks: metadata size (<10KB), metadata structure (must be object), DID format, signature
+  - verify_envelope_signature() reuses JCS canonicalization and ed25519 verification from openclaw-crypto
+  - check_duplicate_hash() queries database for existing hash and returns 400 if found
+  - Envelope type validation allows both "signature-envelope" and "contribution-manifest"
+  - Use `did_to_verifying_key` to extract VerifyingKey from DID for signature verification
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 15 server + 2 doctests = 89 tests
+---
+
+## 2026-01-31 - US-006A
+- What was implemented: Created artifact_derivations table for tracking attribution relationships
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000002_create_artifact_derivations_table.sql` - New migration
+  - `crates/openclaw-server/src/models/artifact_derivation.rs` - New model with ArtifactDerivation and NewArtifactDerivation
+  - `crates/openclaw-server/src/models.rs` - Added artifact_derivation module and re-exports
+- **Learnings for future iterations:**
+  - Foreign keys use ON DELETE CASCADE to clean up derivations when artifacts are deleted
+  - Unique constraint on (artifact_id, derived_from_id) prevents duplicate derivation records
+  - Two indexes: one on artifact_id for finding parents, one on derived_from_id for finding children
+  - NewArtifactDerivation is used for creating records (no id/created_at)
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 17 server + 2 doctests = 91 tests
+---
+
+## 2026-01-31 - US-006B
+- What was implemented: Derivation declaration logic for artifact registration
+- Files changed:
+  - `crates/openclaw-server/src/routes/artifacts.rs` - Added process_derivations, resolve_artifact_reference, insert_derivation functions and 5 tests
+- **Learnings for future iterations:**
+  - derivedFrom can be a string (single parent) or array (multiple parents)
+  - References can be UUIDs or SHA-256 content hashes
+  - Use ON CONFLICT DO NOTHING to handle duplicate derivation attempts gracefully
+  - resolve_artifact_reference tries UUID parse first, then falls back to hash lookup
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 22 server + 2 doctests = 96 tests
+---
+
+## 2026-01-31 - US-006C
+- What was implemented: Cycle detection for derivation graph to keep it acyclic
+- Files changed:
+  - `crates/openclaw-server/src/routes/artifacts.rs` - Added detect_cycle function and 3 unit tests
+- **Learnings for future iterations:**
+  - detect_cycle uses DFS with a HashSet for visited tracking
+  - Self-reference (artifact_id == parent_id) is a trivial cycle case
+  - MAX_CYCLE_DETECTION_DEPTH = 100 prevents DoS on deep graphs
+  - If depth limit reached, conservatively assume no cycle to avoid blocking legitimate deep derivations
+  - The check runs before insert_derivation, so cycles are rejected with 400 error
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 25 server + 2 doctests = 99 tests
+---
+
+## 2026-01-31 - US-007A
+- What was implemented: Attribution graph query endpoint GET /api/v1/artifacts/{id}/attribution
+- Files changed:
+  - `crates/openclaw-server/src/routes/artifacts.rs` - Added get_attribution handler, traverse_attribution function, AttributionQuery, AttributionNode, AttributionResponse types, 6 unit tests
+- **Learnings for future iterations:**
+  - Use BFS (level by level) for depth-bounded traversal rather than DFS
+  - Use visited HashSet to prevent cycles from appearing in output
+  - Use sqlx `ANY($1)` with Vec<Uuid> for batch parent queries at each level
+  - Limit results per level to 100 to prevent oversized responses
+  - Extract description from metadata.description if present
+  - Use `#[serde(default = "default_depth")]` for default query param values
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 31 server + 2 doctests = 105 tests
+---
+
+## 2026-01-31 - US-007B
+- What was implemented: Attribution graph result formatting with grouped depth levels
+- Files changed:
+  - `crates/openclaw-server/src/routes/artifacts.rs` - Added DepthLevel struct, group_by_depth function, 'levels' field in AttributionResponse, 4 new unit tests
+- **Learnings for future iterations:**
+  - Use BTreeMap for group_by_depth to keep depth levels in ascending order
+  - Add Clone derive to structs that need to be grouped/cloned in tests
+  - Response includes both 'parents' (flat) and 'levels' (grouped) for flexibility
+  - Timestamp ordering via ORDER BY in SQL is more efficient than sorting in Rust
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 35 server + 2 doctests = 109 tests
+---
+
+## 2026-01-31 - US-008A
+- What was implemented: Created did_bindings table for linking DIDs to user accounts
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000003_create_did_bindings_table.sql` - New migration
+  - `crates/openclaw-server/src/models/did_binding.rs` - New model with DidBinding and NewDidBinding
+  - `crates/openclaw-server/src/models.rs` - Added did_binding module and re-exports
+- **Learnings for future iterations:**
+  - Use partial unique index `WHERE revoked_at IS NULL` to allow same DID in historical records but prevent duplicates for active bindings
+  - The user_id column is UUID but without FK constraint (users table doesn't exist yet) - FK can be added later via ALTER TABLE
+  - Added is_active() helper method to check if binding is not revoked
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 37 server + 2 doctests = 111 tests
+---
+
+## 2026-01-31 - US-008B
+- What was implemented: Created did_challenges table for secure DID binding flow
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000004_create_did_challenges_table.sql` - New migration
+  - `crates/openclaw-server/src/models/did_challenge.rs` - New model with DidChallenge and NewDidChallenge
+  - `crates/openclaw-server/src/models.rs` - Added did_challenge module and re-exports
+- **Learnings for future iterations:**
+  - Challenge table stores hex-encoded random bytes with expiry timestamp
+  - Added index on user_id for rate limiting queries (in addition to challenge and expires_at)
+  - is_valid() checks both not expired AND not used - important for security
+  - is_expired() uses <= comparison to ensure expiry time is inclusive
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 42 server + 2 doctests = 116 tests
+---
+
+## 2026-01-31 - US-008C
+- What was implemented: Challenge generation endpoint POST /api/v1/identity/challenge
+- Files changed:
+  - `crates/openclaw-server/Cargo.toml` - Added rand 0.8 and hex 0.4 dependencies
+  - `crates/openclaw-server/src/routes/identity.rs` - New module with create_challenge endpoint
+  - `crates/openclaw-server/src/routes/mod.rs` - Added identity routes to API router
+  - `Cargo.lock` - Updated with rand and hex dependencies
+- **Learnings for future iterations:**
+  - Use `rand::thread_rng().gen::<[u8; 32]>()` for cryptographically secure random bytes
+  - Hex encoding with `hex::encode()` produces 64-char string from 32 bytes
+  - Challenge expiry uses `chrono::Duration::minutes(10)` for 10-minute window
+  - Response uses `#[serde(rename_all = "camelCase")]` for JavaScript-friendly field names
+  - Authentication is noted as TODO in request struct (user_id currently in request body)
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 46 server + 2 doctests = 120 tests
+---
+
+## 2026-01-31 - US-008D
+- What was implemented: DID binding endpoint POST /api/v1/identity/bind
+- Files changed:
+  - `crates/openclaw-server/src/routes/identity.rs` - Added bind_did endpoint with full signature verification flow
+- **Learnings for future iterations:**
+  - Signature verification flow: decode challenge hex → decode base64 signature → parse 64-byte signature → verify with VerifyingKey
+  - Use sqlx transactions (pool.begin() / tx.commit()) for atomic multi-table operations
+  - Check for existing active bindings before creating new ones (partial unique index handles duplicates)
+  - BindDidRequest uses camelCase for JavaScript compatibility (challengeSignature not challenge_signature in JSON)
+  - The bind endpoint checks: DID format → challenge exists → not expired → not used → signature valid → no existing binding
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 54 server + 2 doctests = 128 tests
+---
+
+## 2026-01-31 - US-008E
+- What was implemented: Rate limiting for challenge endpoint (5 challenges per user per hour)
+- Files changed:
+  - `crates/openclaw-server/src/error.rs` - Added TooManyRequests error variant with Retry-After header support
+  - `crates/openclaw-server/src/routes/identity.rs` - Added check_challenge_rate_limit function and rate limiting check in create_challenge
+- **Learnings for future iterations:**
+  - Use `chrono::Duration::minutes()` for time window calculations
+  - Count challenges using `WHERE created_at >= $window_start` for sliding window rate limiting
+  - Calculate retry_after by finding oldest challenge in window and computing when it expires from the window
+  - TooManyRequests error variant uses struct fields for message and retry_after to enable Retry-After header
+  - axum's IntoResponse allows modifying response headers directly via `response.headers_mut().insert()`
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 56 server + 2 doctests = 130 tests
+---
+
+## 2026-01-31 - US-008F
+- What was implemented: Rate limiting for bind endpoint (3 attempts per challenge)
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000005_add_challenge_failed_attempts.sql` - New migration adding failed_attempts column
+  - `crates/openclaw-server/src/models/did_challenge.rs` - Added MAX_BIND_ATTEMPTS constant, failed_attempts field, is_locked() helper, 2 new tests
+  - `crates/openclaw-server/src/routes/identity.rs` - Added increment_failed_attempts function, locked challenge check in bind_did, 4 new tests
+- **Learnings for future iterations:**
+  - Add migration for schema changes, then update model struct to include new field
+  - The is_locked() helper checks `failed_attempts >= MAX_BIND_ATTEMPTS`
+  - Increment failed_attempts atomically with UPDATE ... SET failed_attempts = failed_attempts + 1
+  - When returning 429 for locked challenges, set retry_after to 0 to indicate "request a new challenge" rather than wait
+  - Error message includes remaining attempts for user feedback
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 62 server + 2 doctests = 136 tests
+---
+
+## 2026-01-31 - US-008G
+- What was implemented: Integration tests for complete DID binding flow
+- Files changed:
+  - `crates/openclaw-server/Cargo.toml` - Added tower (with util feature) and hex dev-dependencies
+  - `crates/openclaw-server/tests/did_binding_integration.rs` - New integration test file with 5 tests
+- **Learnings for future iterations:**
+  - Integration tests that need database should be marked with `#[ignore = "requires PostgreSQL database"]`
+  - Use `tower::ServiceExt` for `.oneshot()` calls to test axum apps
+  - Create deterministic test identities with known seeds for reproducibility
+  - Run ignored tests with: `cargo test --test did_binding_integration -- --ignored`
+  - Test cleanup should remove both did_bindings and did_challenges to avoid state leakage
+  - Use `json!({ "userId": ... })` (camelCase) for request bodies matching serde rename
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 62 server + 5 integration (ignored) + 2 doctests = 136 running, 5 ignored
+---
+
+## 2026-01-31 - US-009A
+- What was implemented: DID field in user profile query via new profile endpoint
+- Files changed:
+  - `crates/openclaw-server/src/routes/profile.rs` - New module with GET /api/v1/profile/{user_id}/dids endpoint
+  - `crates/openclaw-server/src/routes/mod.rs` - Added profile module and route nesting
+- **Learnings for future iterations:**
+  - Use `#[serde(rename_all = "camelCase")]` for JSON field naming consistency with JavaScript
+  - axum path parameters use `Path<Uuid>` extractor
+  - Query returns tuple `(String, DateTime<Utc>)` which maps cleanly to struct fields
+  - Profile endpoint returns empty array [] when no DIDs bound (not an error)
+  - Total tests now: 19 CLI + 43 crypto + 6 golden + 4 roundtrip + 66 server + 5 integration (ignored) + 2 doctests = 140 running, 5 ignored
+---
+
+## 2026-01-31 - US-009B
+- What was implemented: DID display component (IdentityBadge) with Next.js frontend scaffold
+- Files changed:
+  - `web/package.json` - New Next.js 14 project with React 18 and TypeScript
+  - `web/tsconfig.json` - TypeScript configuration with strict mode
+  - `web/next.config.js` - Next.js configuration
+  - `web/next-env.d.ts` - Next.js TypeScript declarations
+  - `web/src/app/layout.tsx` - Root layout component
+  - `web/src/app/page.tsx` - Home page placeholder
+  - `web/src/components/IdentityBadge.tsx` - Main component with truncation, tooltip, copy, timestamp
+  - `web/src/components/index.ts` - Component exports
+  - `web/src/lib/utils.ts` - Utility functions (truncateDid, formatTimestamp, copyToClipboard)
+- **Learnings for future iterations:**
+  - Frontend is in web/ directory, uses Next.js 14 App Router with src/ directory structure
+  - Use 'use client' directive for components with client-side interactivity (useState, onClick)
+  - truncateDid shows first 12 chars + "..." + last 2 chars for DID display
+  - Clipboard API requires try/catch with fallback for older browsers
+  - TypeScript typecheck: `npm run typecheck` in web/ directory
+  - Path alias @/* maps to ./src/* for clean imports
+---
+
+## 2026-01-31 - US-011A
+- What was implemented: VerifiedBadge React component for displaying post verification status
+- Files changed:
+  - `web/src/components/VerifiedBadge.tsx` - New component with status-based rendering, tooltip, accessibility
+  - `web/src/components/index.ts` - Added VerifiedBadge and VerificationStatus exports
+- **Learnings for future iterations:**
+  - VerificationStatus enum matches server-side: 'none', 'invalid', 'valid_unbound', 'valid_bound'
+  - Use SVG for checkmark icon (no external icon library needed)
+  - Component returns null for none/invalid status (not empty div) for cleaner DOM
+  - Include aria-label for accessibility with full verification context
+  - Reuse truncateDid from lib/utils for DID display in tooltip
+---
+
+## 2026-01-31 - US-011B
+- What was implemented: PostCard component with VerifiedBadge integration
+- Files changed:
+  - `web/src/components/PostCard.tsx` - New PostCard component with author info, content, verification badge
+  - `web/src/components/index.ts` - Added PostCard and PostCardProps exports
+- **Learnings for future iterations:**
+  - PostCard includes author avatar (with initial fallback), name, username, timestamp
+  - VerifiedBadge positioned next to author name in header for visibility
+  - Uses inline styles for component isolation (no external CSS dependencies)
+  - Footer includes upvote and comment buttons with SVG icons
+  - Click handlers on buttons use e.stopPropagation() to prevent card click propagation
+---
+
+## 2026-01-31 - US-011C
+- What was implemented: SignatureModal component for viewing full signature envelope JSON
+- Files changed:
+  - `web/src/components/SignatureModal.tsx` - New modal component with JSON syntax highlighting and copy button
+  - `web/src/components/VerifiedBadge.tsx` - Updated to accept signatureEnvelope prop and open modal on click
+  - `web/src/components/PostCard.tsx` - Updated to pass signatureEnvelope to VerifiedBadge
+- **Learnings for future iterations:**
+  - SignatureModal displays JSON with syntax highlighting (keys purple, strings green, numbers blue, booleans red)
+  - Summary fields at top show DID, hash, timestamp, signature with truncation and full value in title tooltip
+  - Modal handles escape key to close and backdrop click to dismiss
+  - Copy JSON button uses copyToClipboard from lib/utils with visual "Copied!" feedback
+  - VerifiedBadge now manages modal state internally and uses e.stopPropagation() to prevent card click
+  - signatureEnvelope prop is optional - modal only shows when envelope is provided
+---
+
+## 2026-01-31 - US-012A
+- What was implemented: M-credits account database table and Rust model for tracking token balances
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000007_create_m_credits_accounts_table.sql` - Migration with NUMERIC(20,8), constraints, trigger
+  - `crates/openclaw-server/src/models/m_credits_account.rs` - MCreditsAccount and NewMCreditsAccount with balance helpers
+  - `crates/openclaw-server/src/models.rs` - Added m_credits_account module and re-exports
+  - `crates/openclaw-server/Cargo.toml` - Added bigdecimal crate with serde feature for decimal precision
+  - `Cargo.lock` - Updated with bigdecimal and num-bigint dependencies
+- **Learnings for future iterations:**
+  - Use bigdecimal::BigDecimal (from bigdecimal crate with serde feature) instead of sqlx::types::BigDecimal for proper serde support
+  - NUMERIC(20,8) in PostgreSQL maps to BigDecimal in Rust via sqlx's bigdecimal feature
+  - Use CREATE OR REPLACE FUNCTION for idempotent trigger function creation
+  - Non-negative balance constraints are handled at database level with CHECK constraints
+  - total_balance() helper allows treating main + promo balances as unified spending power
+  - 162 total tests pass (88 server including 4 new m_credits_account tests)
+---
+
+## 2026-01-31 - US-012B
+- What was implemented: M-credits ledger table for event sourcing of all credit transactions
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000008_create_m_credits_ledger_table.sql` - Migration with event type enum, amount, from_did, to_did, metadata JSONB
+  - `crates/openclaw-server/src/models/m_credits_ledger.rs` - MCreditsLedger, NewMCreditsLedger, MCreditsEventType with factory methods
+  - `crates/openclaw-server/src/models.rs` - Added m_credits_ledger module and re-exports
+- **Learnings for future iterations:**
+  - Use sqlx::Type derive macro with `#[sqlx(type_name = "enum_name", rename_all = "lowercase")]` to map Rust enums to PostgreSQL enums
+  - Event sourcing pattern: ledger is append-only (no updates/deletes), accounts table is derived state
+  - from_did is None for mint events (credits entering system), to_did is None for burn events (credits leaving)
+  - Factory methods (mint, burn, transfer, hold, release) ensure correct field population for each event type
+  - Amount must be positive (enforced by CHECK constraint), negative amounts don't make sense for ledger entries
+  - Composite index for DID history enables efficient "show all transactions for a DID" queries
+  - 169 total tests pass (95 server including 7 new m_credits_ledger tests)
+---
+
+## 2026-01-31 - US-012C
+- What was implemented: Purchase invoices table for tracking credit purchases
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000009_create_purchase_invoices_table.sql` - Migration with enums and trigger
+  - `crates/openclaw-server/src/models/purchase_invoice.rs` - PurchaseInvoice, NewPurchaseInvoice, PaymentProvider, InvoiceStatus
+  - `crates/openclaw-server/src/models.rs` - Added purchase_invoice module and re-exports
+- **Learnings for future iterations:**
+  - Use `rename_all = "snake_case"` for enums with multi-word variants like ApplePay → apple_pay
+  - NUMERIC(10,2) for USD amounts (cents precision), NUMERIC(20,8) for M-credits (8 decimal precision)
+  - updated_at trigger pattern: CREATE OR REPLACE FUNCTION + CREATE TRIGGER
+  - Status helper methods (is_pending, is_completed, is_failed) make code more readable
+  - Always include both created_at AND updated_at for tables that change state
+  - 175 total tests pass (101 server including 6 new purchase_invoice tests)
+---
+
+## 2026-01-31 - US-012D
+- What was implemented: Credit purchase endpoint POST /api/v1/credits/purchase
+- Files changed:
+  - `crates/openclaw-server/src/routes/credits.rs` - New module with purchase endpoint and 22 unit tests
+  - `crates/openclaw-server/src/routes/mod.rs` - Added credits module and route nesting
+- **Learnings for future iterations:**
+  - Use BigDecimal::from_str for parsing decimal amounts from request JSON
+  - Credit rate constant (CREDITS_PER_USD) should be configurable in production
+  - Amount validation should check both min/max bounds and positivity
+  - Payment provider defaults to Stripe if not specified
+  - Placeholder Stripe Checkout URL format includes invoice ID for tracking
+  - New invoices are created with status=pending; credits are NOT minted until webhook confirms payment (US-012E)
+  - external_ref field stores the Stripe session ID (placeholder for now)
+  - 197 total tests pass (123 server including 22 new credits tests)
+---
+
+## 2026-01-31 - US-012E
+- What was implemented: Credit minting on payment confirmation via Stripe webhook
+- Files changed:
+  - `crates/openclaw-server/src/routes/credits.rs` - Added POST /api/v1/credits/webhook/stripe endpoint with handle_stripe_webhook handler and 17 unit tests
+- **Learnings for future iterations:**
+  - Stripe webhook events use snake_case for event types (checkout.session.completed, checkout.session.expired)
+  - Invoice ID can be extracted from metadata.invoice_id (preferred) or client_reference_id (fallback)
+  - Signature verification is a placeholder - in production, use stripe crate's Webhook::construct_event
+  - mint_credits_to_did creates ledger entry AND upserts account balance atomically using ON CONFLICT DO UPDATE
+  - Webhook response should always return 200 OK to acknowledge receipt, even for expired sessions
+  - Use JSON metadata in ledger entry to track invoice_id, external_ref (payment_intent), and reason
+  - Failed/expired sessions update invoice status to 'failed' instead of minting
+  - load_pending_invoice validates the invoice exists AND has status=pending before processing
+  - 213 total tests pass (139 server including 17 new webhook tests)
+---
+
+## 2026-01-31 - US-012F
+- What was implemented: Promo credit grants with lifetime limit per DID
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000010_add_promo_mint_event_type.sql` - Migration to add promo_mint to PostgreSQL enum
+  - `crates/openclaw-server/src/models/m_credits_ledger.rs` - Added PromoMint event type and promo_mint factory method
+  - `crates/openclaw-server/src/routes/credits.rs` - Added grant_promo_credits function and POST /api/v1/credits/grant-promo endpoint
+- **Learnings for future iterations:**
+  - PostgreSQL enum extension uses `ALTER TYPE ... ADD VALUE IF NOT EXISTS` for idempotent migrations
+  - Use sqlx::Type derive with #[sqlx(rename = "...")] for multi-word enum variants (promo_mint vs PromoMint)
+  - Lifetime credit limits require querying existing ledger entries, not account balance (ledger is source of truth)
+  - Promo credits update promo_balance separately from main balance using atomic upsert
+  - 227 total tests pass (152 server + 43 crypto + 6 golden + 4 roundtrip + 19 CLI + 2 doctests + 5 ignored)
+---
+
+## 2026-01-31 - US-012G
+- What was implemented: Reserve attestation endpoint for transparent reserve backing visibility
+- Files changed:
+  - `crates/openclaw-server/src/routes/credits.rs` - Added GET /api/v1/credits/reserves endpoint with ReservesResponse, AttestationData structs, and helper functions
+- **Learnings for future iterations:**
+  - Reserve coverage ratio only considers main balance (promo credits are not backed by USD reserves)
+  - Use SHA-256 hash of attestation data for verification (serde_json serialization → hash)
+  - Signature is a placeholder format for now; in production would use server's Ed25519 key
+  - When no credits outstanding but reserves exist, return high ratio (999999) to indicate over-collateralization
+  - When both are zero, return 1.0 (balanced at zero)
+  - Use chrono::SecondsFormat::Millis for ISO 8601 timestamps with millisecond precision
+  - 239 total tests pass (164 server + 43 crypto + 6 golden + 4 roundtrip + 19 CLI + 2 doctests + 5 ignored)
+---
+
+## 2026-01-31 - US-013A
+- What was implemented: Bounties table and model for Protocol M task marketplace
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000011_create_bounties_table.sql` - Migration with bounty_closure_type and bounty_status enums, bounties table, indexes
+  - `crates/openclaw-server/src/models/bounty.rs` - Bounty and NewBounty structs with factory methods and helpers
+  - `crates/openclaw-server/src/models.rs` - Added bounty module and re-exports
+- **Learnings for future iterations:**
+  - Use `rename_all = "snake_case"` for enums with multi-word variants like InProgress → in_progress (not lowercase which gives inprogress)
+  - Factory methods on NewBounty (test_bounty, quorum_bounty, requester_bounty) encapsulate closure-type-specific metadata
+  - Metadata extraction helpers (eval_harness_hash, reviewer_count, min_reviewer_rep) provide type-safe access to JSONB fields
+  - Composite index `idx_bounties_open_listing ON bounties(status, created_at DESC) WHERE status = 'open'` optimizes marketplace queries
+  - 249 total tests pass (174 server + 43 crypto + 6 golden + 4 roundtrip + 19 CLI + 2 doctests + 5 ignored)
+---
+

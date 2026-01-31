@@ -241,6 +241,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Handles edge cases: zero credits (ratio=1), reserves without credits (ratio=999999)
   - 14 unit tests for coverage ratio calculation, serialization, and timestamp format
 
+#### Bounty Marketplace (US-013A to US-016F-R) — In Progress
+- US-013A: Created bounties table for task marketplace:
+  - Migration 20260131000011 with bounty_closure_type enum (tests, quorum, requester)
+  - bounty_status enum (open, in_progress, completed, cancelled)
+  - bounties table with NUMERIC(20,8) reward_credits, JSONB metadata, optional deadline
+  - Indexes on poster_did, status, deadline, created_at, plus composite marketplace index
+  - Bounty and NewBounty Rust model structs with factory methods
+  - Helper methods: is_open, is_active, is_expired, uses_tests, uses_quorum, uses_requester
+  - Metadata extraction helpers: eval_harness_hash, reviewer_count, min_reviewer_rep
+  - 10 unit tests for serialization, status helpers, and metadata extraction
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
