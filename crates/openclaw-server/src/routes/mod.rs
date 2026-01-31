@@ -2,6 +2,7 @@
 
 pub mod artifacts;
 pub mod identity;
+pub mod posts;
 pub mod profile;
 
 use axum::Router;
