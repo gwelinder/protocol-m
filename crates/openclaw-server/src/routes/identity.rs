@@ -6,13 +6,16 @@ use axum::{
     Json, Router,
 };
 use chrono::{Duration, Utc};
+use ed25519_dalek::{Signature, Verifier};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::error::AppError;
+use crate::models::did_binding::DidBinding;
 use crate::models::did_challenge::DidChallenge;
+use openclaw_crypto::did_to_verifying_key;
 
 /// Challenge length in bytes (32 bytes = 256 bits).
 const CHALLENGE_BYTES: usize = 32;
@@ -39,10 +42,37 @@ pub struct ChallengeResponse {
     pub expires_at: String,
 }
 
+/// Request body for binding a DID to a user account.
+/// Note: In a real implementation, the user_id would come from authentication.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BindDidRequest {
+    /// The user ID requesting the binding.
+    /// In production, this would be extracted from auth token.
+    pub user_id: Uuid,
+    /// The DID to bind (did:key:z...).
+    pub did: String,
+    /// The challenge that was signed.
+    pub challenge: String,
+    /// Base64-encoded Ed25519 signature over the challenge bytes.
+    pub challenge_signature: String,
+}
+
+/// Response for successful DID binding.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BindDidResponse {
+    /// The bound DID.
+    pub did: String,
+    /// Success message.
+    pub message: String,
+}
+
 /// Creates the identity router.
 pub fn router(pool: PgPool) -> Router {
     Router::new()
         .route("/challenge", post(create_challenge))
+        .route("/bind", post(bind_did))
         .with_state(pool)
 }
 
@@ -88,9 +118,138 @@ async fn create_challenge(
     }))
 }
 
+/// POST /api/v1/identity/bind
+///
+/// Binds a DID to a user account after verifying ownership.
+/// The client must have previously requested a challenge and signed it
+/// with their private key corresponding to the DID.
+async fn bind_did(
+    State(pool): State<PgPool>,
+    Json(request): Json<BindDidRequest>,
+) -> Result<Json<BindDidResponse>, AppError> {
+    // Step 1: Validate DID format and extract verifying key
+    let verifying_key = did_to_verifying_key(&request.did)
+        .map_err(|e| AppError::BadRequest(format!("Invalid DID format: {}", e)))?;
+
+    // Step 2: Load challenge from database
+    let challenge_record: Option<DidChallenge> = sqlx::query_as(
+        r#"
+        SELECT id, user_id, challenge, expires_at, used_at, created_at
+        FROM did_challenges
+        WHERE challenge = $1 AND user_id = $2
+        "#,
+    )
+    .bind(&request.challenge)
+    .bind(request.user_id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query challenge: {}", e)))?;
+
+    let challenge_record = challenge_record
+        .ok_or_else(|| AppError::BadRequest("Challenge not found".to_string()))?;
+
+    // Step 3: Verify challenge is not expired
+    if challenge_record.is_expired() {
+        return Err(AppError::BadRequest("Challenge has expired".to_string()));
+    }
+
+    // Step 4: Verify challenge is not already used
+    if challenge_record.is_used() {
+        return Err(AppError::BadRequest("Challenge has already been used".to_string()));
+    }
+
+    // Step 5: Decode the challenge hex to bytes for signature verification
+    let challenge_bytes = hex::decode(&request.challenge)
+        .map_err(|e| AppError::BadRequest(format!("Invalid challenge format: {}", e)))?;
+
+    // Step 6: Decode the base64 signature
+    use base64::Engine;
+    let signature_bytes = base64::engine::general_purpose::STANDARD
+        .decode(&request.challenge_signature)
+        .map_err(|e| AppError::BadRequest(format!("Invalid signature encoding: {}", e)))?;
+
+    // Step 7: Parse signature bytes into Signature struct
+    let signature_array: [u8; 64] = signature_bytes
+        .try_into()
+        .map_err(|_| AppError::BadRequest("Invalid signature length: expected 64 bytes".to_string()))?;
+    let signature = Signature::from_bytes(&signature_array);
+
+    // Step 8: Verify the signature over the challenge bytes
+    verifying_key
+        .verify(&challenge_bytes, &signature)
+        .map_err(|_| AppError::BadRequest("Signature verification failed".to_string()))?;
+
+    // Step 9: Check if DID is already bound to this user
+    let existing_binding: Option<DidBinding> = sqlx::query_as(
+        r#"
+        SELECT id, user_id, did, created_at, revoked_at
+        FROM did_bindings
+        WHERE did = $1 AND revoked_at IS NULL
+        "#,
+    )
+    .bind(&request.did)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to check existing binding: {}", e)))?;
+
+    if let Some(existing) = existing_binding {
+        if existing.user_id == request.user_id {
+            return Err(AppError::BadRequest("DID is already bound to your account".to_string()));
+        } else {
+            return Err(AppError::BadRequest("DID is already bound to another account".to_string()));
+        }
+    }
+
+    // Step 10: Insert DID binding in a transaction
+    let mut tx = pool.begin().await
+        .map_err(|e| AppError::Internal(format!("Failed to begin transaction: {}", e)))?;
+
+    // Insert the DID binding
+    let _binding: DidBinding = sqlx::query_as(
+        r#"
+        INSERT INTO did_bindings (id, user_id, did, created_at)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, user_id, did, created_at, revoked_at
+        "#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(request.user_id)
+    .bind(&request.did)
+    .bind(Utc::now())
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to create DID binding: {}", e)))?;
+
+    // Mark the challenge as used
+    sqlx::query(
+        r#"
+        UPDATE did_challenges
+        SET used_at = $1
+        WHERE id = $2
+        "#,
+    )
+    .bind(Utc::now())
+    .bind(challenge_record.id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to mark challenge as used: {}", e)))?;
+
+    // Commit transaction
+    tx.commit().await
+        .map_err(|e| AppError::Internal(format!("Failed to commit transaction: {}", e)))?;
+
+    Ok(Json(BindDidResponse {
+        did: request.did,
+        message: "DID successfully bound to your account".to_string(),
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::Engine;
+    use ed25519_dalek::{SigningKey, Signer};
+    use openclaw_crypto::pubkey_to_did;
 
     #[test]
     fn test_generate_challenge_length() {
@@ -123,5 +282,141 @@ mod tests {
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("\"challenge\":"));
         assert!(json.contains("\"expiresAt\":")); // camelCase in JSON
+    }
+
+    #[test]
+    fn test_bind_request_deserialization() {
+        let json = r#"{
+            "userId": "550e8400-e29b-41d4-a716-446655440000",
+            "did": "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw",
+            "challenge": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "challengeSignature": "dGVzdCBzaWduYXR1cmU="
+        }"#;
+
+        let request: BindDidRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(request.user_id.to_string(), "550e8400-e29b-41d4-a716-446655440000");
+        assert!(request.did.starts_with("did:key:z"));
+        assert_eq!(request.challenge.len(), 64);
+    }
+
+    #[test]
+    fn test_bind_response_serialization() {
+        let response = BindDidResponse {
+            did: "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw".to_string(),
+            message: "DID successfully bound".to_string(),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"did\":"));
+        assert!(json.contains("\"message\":"));
+    }
+
+    #[test]
+    fn test_signature_verification_logic() {
+        // Create a test keypair
+        let seed: [u8; 32] = [0x42; 32];
+        let signing_key = SigningKey::from_bytes(&seed);
+        let verifying_key = signing_key.verifying_key();
+        let did = pubkey_to_did(&verifying_key);
+
+        // Generate a challenge
+        let challenge = generate_challenge();
+        let challenge_bytes = hex::decode(&challenge).unwrap();
+
+        // Sign the challenge
+        let signature = signing_key.sign(&challenge_bytes);
+        let signature_base64 = base64::engine::general_purpose::STANDARD.encode(signature.to_bytes());
+
+        // Verify using the same logic as the handler
+        let recovered_key = did_to_verifying_key(&did).unwrap();
+        let signature_bytes = base64::engine::general_purpose::STANDARD
+            .decode(&signature_base64)
+            .unwrap();
+        let sig_array: [u8; 64] = signature_bytes.try_into().unwrap();
+        let sig = Signature::from_bytes(&sig_array);
+
+        // This should succeed
+        assert!(recovered_key.verify(&challenge_bytes, &sig).is_ok());
+    }
+
+    #[test]
+    fn test_signature_verification_fails_with_wrong_key() {
+        // Create two different keypairs
+        let seed1: [u8; 32] = [0x42; 32];
+        let seed2: [u8; 32] = [0x43; 32];
+        let signing_key1 = SigningKey::from_bytes(&seed1);
+        let signing_key2 = SigningKey::from_bytes(&seed2);
+        let verifying_key2 = signing_key2.verifying_key();
+        let did2 = pubkey_to_did(&verifying_key2);
+
+        // Generate and sign challenge with key1
+        let challenge = generate_challenge();
+        let challenge_bytes = hex::decode(&challenge).unwrap();
+        let signature = signing_key1.sign(&challenge_bytes);
+        let signature_base64 = base64::engine::general_purpose::STANDARD.encode(signature.to_bytes());
+
+        // Try to verify with key2's DID (should fail)
+        let recovered_key = did_to_verifying_key(&did2).unwrap();
+        let signature_bytes = base64::engine::general_purpose::STANDARD
+            .decode(&signature_base64)
+            .unwrap();
+        let sig_array: [u8; 64] = signature_bytes.try_into().unwrap();
+        let sig = Signature::from_bytes(&sig_array);
+
+        // This should fail
+        assert!(recovered_key.verify(&challenge_bytes, &sig).is_err());
+    }
+
+    #[test]
+    fn test_signature_verification_fails_with_wrong_challenge() {
+        // Create a keypair
+        let seed: [u8; 32] = [0x42; 32];
+        let signing_key = SigningKey::from_bytes(&seed);
+        let verifying_key = signing_key.verifying_key();
+        let did = pubkey_to_did(&verifying_key);
+
+        // Sign one challenge, but verify against a different one
+        let challenge1 = generate_challenge();
+        let challenge1_bytes = hex::decode(&challenge1).unwrap();
+        let signature = signing_key.sign(&challenge1_bytes);
+        let signature_base64 = base64::engine::general_purpose::STANDARD.encode(signature.to_bytes());
+
+        // Different challenge for verification
+        let challenge2 = generate_challenge();
+        let challenge2_bytes = hex::decode(&challenge2).unwrap();
+
+        let recovered_key = did_to_verifying_key(&did).unwrap();
+        let signature_bytes = base64::engine::general_purpose::STANDARD
+            .decode(&signature_base64)
+            .unwrap();
+        let sig_array: [u8; 64] = signature_bytes.try_into().unwrap();
+        let sig = Signature::from_bytes(&sig_array);
+
+        // This should fail
+        assert!(recovered_key.verify(&challenge2_bytes, &sig).is_err());
+    }
+
+    #[test]
+    fn test_invalid_signature_length() {
+        // Invalid base64 that decodes to wrong length
+        let short_sig = base64::engine::general_purpose::STANDARD.encode(vec![0u8; 32]);
+        let decoded = base64::engine::general_purpose::STANDARD.decode(&short_sig).unwrap();
+        let result: Result<[u8; 64], _> = decoded.try_into();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_did_format() {
+        let invalid_did = "did:web:example.com";
+        let result = did_to_verifying_key(invalid_did);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("must start with"));
+    }
+
+    #[test]
+    fn test_invalid_challenge_hex() {
+        let invalid_hex = "zzzz";
+        let result = hex::decode(invalid_hex);
+        assert!(result.is_err());
     }
 }
