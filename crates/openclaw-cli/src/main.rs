@@ -2,6 +2,7 @@
 
 mod keystore;
 pub mod metadata;
+pub mod policy;
 
 use clap::{Parser, Subcommand};
 
