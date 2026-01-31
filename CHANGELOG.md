@@ -251,6 +251,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Helper methods: is_open, is_active, is_expired, uses_tests, uses_quorum, uses_requester
   - Metadata extraction helpers: eval_harness_hash, reviewer_count, min_reviewer_rep
   - 10 unit tests for serialization, status helpers, and metadata extraction
+- US-013B: Created escrow_holds table for bounty payment locking:
+  - Migration 20260131000012 with escrow_status enum (held, released, cancelled)
+  - escrow_holds table with bounty_id FK, holder_did, NUMERIC(20,8) amount, timestamps
+  - Indexes on bounty_id, holder_did, status, plus composite index for active escrows
+  - EscrowHold, NewEscrowHold, EscrowStatus Rust model structs
+  - Helper methods: is_held, is_released, is_cancelled, is_finalized
+  - 5 unit tests for serialization and status helpers
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

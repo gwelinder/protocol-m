@@ -827,3 +827,17 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - 249 total tests pass (174 server + 43 crypto + 6 golden + 4 roundtrip + 19 CLI + 2 doctests + 5 ignored)
 ---
 
+
+## 2026-01-31 - US-013B
+- What was implemented: Escrow holds table for bounty payment locking
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000012_create_escrow_holds_table.sql` - Migration with escrow_status enum (held, released, cancelled), escrow_holds table with FK to bounties, indexes
+  - `crates/openclaw-server/src/models/escrow_hold.rs` - EscrowHold, NewEscrowHold, EscrowStatus models with factory method and helpers
+  - `crates/openclaw-server/src/models.rs` - Added escrow_hold module and re-exports
+- **Learnings for future iterations:**
+  - Escrow holds link to bounties via FK with ON DELETE CASCADE
+  - Use NUMERIC(20,8) for M-credits amount to match other amount fields
+  - Composite index `(holder_did, status) WHERE status = 'held'` optimizes active escrow queries
+  - released_at is nullable (only set when status changes to released or cancelled)
+  - 254 total tests pass (179 server + 43 crypto + 6 golden + 4 roundtrip + 19 CLI + 2 doctests + 5 ignored)
+---

@@ -1058,8 +1058,8 @@
         "Typecheck passes"
       ],
       "priority": 64,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000012 with escrow_status enum (held, released, cancelled), escrow_holds table with NUMERIC(20,8) amount, indexes on bounty_id/holder_did/status, composite index for active escrows; EscrowHold/NewEscrowHold/EscrowStatus models with factory method and helpers; 5 unit tests; 254 total tests pass"
     },
     {
       "id": "US-013C",
