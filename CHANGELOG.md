@@ -67,6 +67,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-006C: Limited search depth to 100 to prevent DoS attacks
 - US-006C: Return 400 error with descriptive message when cycle detected
 
+#### Attribution Query (US-007A) — Graph Traversal
+- US-007A: Implemented GET /api/v1/artifacts/{id}/attribution endpoint
+- US-007A: Added depth parameter (default 1, max 10) for recursive traversal
+- US-007A: BFS traversal with visited set for cycle prevention in output
+- US-007A: Returns parent artifacts with DID, timestamp, description, metadata
+- US-007A: Limited to 100 results per depth level for performance
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
