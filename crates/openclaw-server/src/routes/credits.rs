@@ -2,7 +2,7 @@
 
 use axum::{
     extract::State,
-    routing::post,
+    routing::{get, post},
     Json, Router,
 };
 use bigdecimal::BigDecimal;
@@ -72,6 +72,7 @@ pub fn router(pool: PgPool) -> Router {
         .route("/purchase", post(purchase_credits))
         .route("/webhook/stripe", post(handle_stripe_webhook))
         .route("/grant-promo", post(grant_promo_credits_handler))
+        .route("/reserves", get(get_reserves))
         .with_state(pool)
 }
 
@@ -765,6 +766,206 @@ async fn grant_promo_credits_handler(
     }))
 }
 
+// ===== Reserve Attestation (US-012G) =====
+
+/// Response for reserve attestation endpoint.
+/// Provides transparency into the M-credits reserve backing.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReservesResponse {
+    /// Total outstanding M-credits (sum of all account balances).
+    pub total_outstanding_credits: String,
+    /// Total main balance credits (excludes promo credits).
+    pub total_main_balance: String,
+    /// Total promotional balance credits.
+    pub total_promo_balance: String,
+    /// Total reserves in USD (sum of completed invoices).
+    pub total_reserves_usd: String,
+    /// Reserve coverage ratio (reserves_usd * credits_per_usd / outstanding_credits).
+    /// A value of 1.0 means fully backed, > 1.0 means over-collateralized.
+    /// Note: Promo credits are not backed by reserves.
+    pub reserve_coverage_ratio: String,
+    /// Credits per USD rate used for calculation.
+    pub credits_per_usd: String,
+    /// Number of active accounts.
+    pub account_count: i64,
+    /// Number of completed invoices.
+    pub invoice_count: i64,
+    /// ISO 8601 timestamp of this attestation.
+    pub timestamp: String,
+    /// Cryptographic signature of the attestation data (placeholder for now).
+    /// In production, this would be signed by a server key for verification.
+    pub signature: String,
+    /// Hash of the attestation data (for verification).
+    pub attestation_hash: String,
+}
+
+/// Internal struct for building attestation data to be hashed/signed.
+#[derive(Debug, Serialize)]
+struct AttestationData {
+    total_outstanding_credits: String,
+    total_main_balance: String,
+    total_promo_balance: String,
+    total_reserves_usd: String,
+    reserve_coverage_ratio: String,
+    timestamp: String,
+}
+
+/// Gets the total outstanding credits from all accounts.
+async fn get_total_outstanding_credits(pool: &PgPool) -> Result<(BigDecimal, BigDecimal, i64), AppError> {
+    // Query sum of balances and promo_balances, plus count of accounts
+    let result: (Option<BigDecimal>, Option<BigDecimal>, Option<i64>) = sqlx::query_as(
+        r#"
+        SELECT
+            COALESCE(SUM(balance), 0),
+            COALESCE(SUM(promo_balance), 0),
+            COUNT(*)
+        FROM m_credits_accounts
+        "#,
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query credit balances: {}", e)))?;
+
+    let main_balance = result.0.unwrap_or_else(|| BigDecimal::from(0));
+    let promo_balance = result.1.unwrap_or_else(|| BigDecimal::from(0));
+    let count = result.2.unwrap_or(0);
+
+    Ok((main_balance, promo_balance, count))
+}
+
+/// Gets the total reserves from completed invoices.
+async fn get_total_reserves(pool: &PgPool) -> Result<(BigDecimal, i64), AppError> {
+    // Query sum of amount_usd from completed invoices
+    let result: (Option<BigDecimal>, Option<i64>) = sqlx::query_as(
+        r#"
+        SELECT
+            COALESCE(SUM(amount_usd), 0),
+            COUNT(*)
+        FROM purchase_invoices
+        WHERE status = 'completed'
+        "#,
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query reserves: {}", e)))?;
+
+    let reserves = result.0.unwrap_or_else(|| BigDecimal::from(0));
+    let count = result.1.unwrap_or(0);
+
+    Ok((reserves, count))
+}
+
+/// Calculates the reserve coverage ratio.
+/// Returns reserves_usd * credits_per_usd / main_balance_credits.
+/// Only main balance is considered (promo credits are not backed).
+fn calculate_coverage_ratio(reserves_usd: &BigDecimal, main_balance: &BigDecimal) -> BigDecimal {
+    if main_balance == &BigDecimal::from(0) {
+        // No credits outstanding means infinite coverage (or 0/0 case)
+        // We return a high number to indicate fully backed
+        if reserves_usd > &BigDecimal::from(0) {
+            // Has reserves but no outstanding = over-collateralized
+            return BigDecimal::from(999999);
+        }
+        // No reserves and no credits = N/A, return 1.0
+        return BigDecimal::from(1);
+    }
+
+    let rate = BigDecimal::from_str(CREDITS_PER_USD).unwrap();
+    // reserves_usd * credits_per_usd gives "credit-equivalent reserves"
+    // Divide by main_balance to get coverage ratio
+    let credit_equivalent = reserves_usd * &rate;
+
+    // Use 8 decimal places for precision
+    credit_equivalent / main_balance
+}
+
+/// Generates a SHA-256 hash of the attestation data.
+fn hash_attestation(data: &AttestationData) -> String {
+    use sha2::{Sha256, Digest};
+
+    // Serialize to canonical JSON
+    let json = serde_json::to_string(data).unwrap_or_default();
+
+    // Hash with SHA-256
+    let mut hasher = Sha256::new();
+    hasher.update(json.as_bytes());
+    let hash = hasher.finalize();
+
+    // Return as hex string
+    hex::encode(hash)
+}
+
+/// Generates a placeholder signature for the attestation.
+/// In production, this would use a server signing key (Ed25519).
+fn sign_attestation(attestation_hash: &str) -> String {
+    // Placeholder: In production, sign with server's Ed25519 key
+    // For now, return a marker indicating signature verification is not implemented
+    format!("placeholder_signature_v1:{}", &attestation_hash[..16])
+}
+
+/// Gets the current ISO 8601 timestamp.
+fn get_current_timestamp() -> String {
+    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+}
+
+/// GET /api/v1/credits/reserves
+///
+/// Returns the current reserve attestation, showing:
+/// - Total outstanding M-credits
+/// - Total USD reserves from completed purchases
+/// - Reserve coverage ratio
+/// - Timestamp and cryptographic signature for verification
+///
+/// This endpoint provides transparency into the M-credits reserve backing.
+async fn get_reserves(
+    State(pool): State<PgPool>,
+) -> Result<Json<ReservesResponse>, AppError> {
+    // Step 1: Get total outstanding credits
+    let (main_balance, promo_balance, account_count) = get_total_outstanding_credits(&pool).await?;
+    let total_outstanding = &main_balance + &promo_balance;
+
+    // Step 2: Get total reserves from completed invoices
+    let (total_reserves_usd, invoice_count) = get_total_reserves(&pool).await?;
+
+    // Step 3: Calculate coverage ratio (only for main balance, promo not backed)
+    let coverage_ratio = calculate_coverage_ratio(&total_reserves_usd, &main_balance);
+
+    // Step 4: Get timestamp
+    let timestamp = get_current_timestamp();
+
+    // Step 5: Build attestation data for hashing
+    let attestation_data = AttestationData {
+        total_outstanding_credits: total_outstanding.to_string(),
+        total_main_balance: main_balance.to_string(),
+        total_promo_balance: promo_balance.to_string(),
+        total_reserves_usd: total_reserves_usd.to_string(),
+        reserve_coverage_ratio: coverage_ratio.to_string(),
+        timestamp: timestamp.clone(),
+    };
+
+    // Step 6: Generate hash
+    let attestation_hash = hash_attestation(&attestation_data);
+
+    // Step 7: Generate signature
+    let signature = sign_attestation(&attestation_hash);
+
+    // Step 8: Build response
+    Ok(Json(ReservesResponse {
+        total_outstanding_credits: total_outstanding.to_string(),
+        total_main_balance: main_balance.to_string(),
+        total_promo_balance: promo_balance.to_string(),
+        total_reserves_usd: total_reserves_usd.to_string(),
+        reserve_coverage_ratio: coverage_ratio.to_string(),
+        credits_per_usd: CREDITS_PER_USD.to_string(),
+        account_count,
+        invoice_count,
+        timestamp,
+        signature,
+        attestation_hash,
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1331,5 +1532,188 @@ mod tests {
             serde_json::to_string(&MCreditsEventType::PromoMint).unwrap(),
             "\"promo_mint\""
         );
+    }
+
+    // ===== Reserve Attestation Tests (US-012G) =====
+
+    #[test]
+    fn test_calculate_coverage_ratio_normal() {
+        // 10 USD reserves * 100 credits/USD = 1000 credit-equivalent
+        // 1000 credit-equivalent / 1000 outstanding = 1.0 (fully backed)
+        let reserves_usd = BigDecimal::from_str("10.00").unwrap();
+        let main_balance = BigDecimal::from_str("1000.00000000").unwrap();
+        let ratio = calculate_coverage_ratio(&reserves_usd, &main_balance);
+        assert_eq!(ratio, BigDecimal::from(1));
+    }
+
+    #[test]
+    fn test_calculate_coverage_ratio_over_collateralized() {
+        // 20 USD reserves * 100 credits/USD = 2000 credit-equivalent
+        // 2000 credit-equivalent / 1000 outstanding = 2.0 (over-collateralized)
+        let reserves_usd = BigDecimal::from_str("20.00").unwrap();
+        let main_balance = BigDecimal::from_str("1000.00000000").unwrap();
+        let ratio = calculate_coverage_ratio(&reserves_usd, &main_balance);
+        assert_eq!(ratio, BigDecimal::from(2));
+    }
+
+    #[test]
+    fn test_calculate_coverage_ratio_under_collateralized() {
+        // 5 USD reserves * 100 credits/USD = 500 credit-equivalent
+        // 500 credit-equivalent / 1000 outstanding = 0.5 (under-collateralized)
+        let reserves_usd = BigDecimal::from_str("5.00").unwrap();
+        let main_balance = BigDecimal::from_str("1000.00000000").unwrap();
+        let ratio = calculate_coverage_ratio(&reserves_usd, &main_balance);
+        assert_eq!(ratio, BigDecimal::from_str("0.5").unwrap());
+    }
+
+    #[test]
+    fn test_calculate_coverage_ratio_no_credits_no_reserves() {
+        // No credits and no reserves = 1.0 (balanced at zero)
+        let reserves_usd = BigDecimal::from(0);
+        let main_balance = BigDecimal::from(0);
+        let ratio = calculate_coverage_ratio(&reserves_usd, &main_balance);
+        assert_eq!(ratio, BigDecimal::from(1));
+    }
+
+    #[test]
+    fn test_calculate_coverage_ratio_reserves_no_credits() {
+        // Reserves but no credits = effectively infinite (over-collateralized)
+        let reserves_usd = BigDecimal::from_str("100.00").unwrap();
+        let main_balance = BigDecimal::from(0);
+        let ratio = calculate_coverage_ratio(&reserves_usd, &main_balance);
+        assert_eq!(ratio, BigDecimal::from(999999));
+    }
+
+    #[test]
+    fn test_calculate_coverage_ratio_fractional() {
+        // 1.5 USD reserves * 100 = 150 credit-equivalent
+        // 150 / 100 credits = 1.5
+        let reserves_usd = BigDecimal::from_str("1.50").unwrap();
+        let main_balance = BigDecimal::from_str("100.00000000").unwrap();
+        let ratio = calculate_coverage_ratio(&reserves_usd, &main_balance);
+        assert_eq!(ratio, BigDecimal::from_str("1.5").unwrap());
+    }
+
+    #[test]
+    fn test_reserves_response_serialization() {
+        let response = ReservesResponse {
+            total_outstanding_credits: "1000.00000000".to_string(),
+            total_main_balance: "800.00000000".to_string(),
+            total_promo_balance: "200.00000000".to_string(),
+            total_reserves_usd: "8.00".to_string(),
+            reserve_coverage_ratio: "1.00".to_string(),
+            credits_per_usd: "100.00000000".to_string(),
+            account_count: 5,
+            invoice_count: 3,
+            timestamp: "2026-01-31T12:00:00.000Z".to_string(),
+            signature: "placeholder_signature_v1:abc123".to_string(),
+            attestation_hash: "abcd1234".to_string(),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"totalOutstandingCredits\":\"1000.00000000\""));
+        assert!(json.contains("\"totalMainBalance\":\"800.00000000\""));
+        assert!(json.contains("\"totalPromoBalance\":\"200.00000000\""));
+        assert!(json.contains("\"totalReservesUsd\":\"8.00\""));
+        assert!(json.contains("\"reserveCoverageRatio\":\"1.00\""));
+        assert!(json.contains("\"creditsPerUsd\":\"100.00000000\""));
+        assert!(json.contains("\"accountCount\":5"));
+        assert!(json.contains("\"invoiceCount\":3"));
+        assert!(json.contains("\"timestamp\":"));
+        assert!(json.contains("\"signature\":"));
+        assert!(json.contains("\"attestationHash\":"));
+    }
+
+    #[test]
+    fn test_hash_attestation_deterministic() {
+        let data1 = AttestationData {
+            total_outstanding_credits: "1000.00000000".to_string(),
+            total_main_balance: "800.00000000".to_string(),
+            total_promo_balance: "200.00000000".to_string(),
+            total_reserves_usd: "8.00".to_string(),
+            reserve_coverage_ratio: "1.00".to_string(),
+            timestamp: "2026-01-31T12:00:00.000Z".to_string(),
+        };
+
+        let data2 = AttestationData {
+            total_outstanding_credits: "1000.00000000".to_string(),
+            total_main_balance: "800.00000000".to_string(),
+            total_promo_balance: "200.00000000".to_string(),
+            total_reserves_usd: "8.00".to_string(),
+            reserve_coverage_ratio: "1.00".to_string(),
+            timestamp: "2026-01-31T12:00:00.000Z".to_string(),
+        };
+
+        let hash1 = hash_attestation(&data1);
+        let hash2 = hash_attestation(&data2);
+
+        assert_eq!(hash1, hash2);
+        assert_eq!(hash1.len(), 64); // SHA-256 hex is 64 chars
+    }
+
+    #[test]
+    fn test_hash_attestation_changes_with_input() {
+        let data1 = AttestationData {
+            total_outstanding_credits: "1000.00000000".to_string(),
+            total_main_balance: "800.00000000".to_string(),
+            total_promo_balance: "200.00000000".to_string(),
+            total_reserves_usd: "8.00".to_string(),
+            reserve_coverage_ratio: "1.00".to_string(),
+            timestamp: "2026-01-31T12:00:00.000Z".to_string(),
+        };
+
+        let data2 = AttestationData {
+            total_outstanding_credits: "1000.00000001".to_string(), // Changed
+            total_main_balance: "800.00000000".to_string(),
+            total_promo_balance: "200.00000000".to_string(),
+            total_reserves_usd: "8.00".to_string(),
+            reserve_coverage_ratio: "1.00".to_string(),
+            timestamp: "2026-01-31T12:00:00.000Z".to_string(),
+        };
+
+        let hash1 = hash_attestation(&data1);
+        let hash2 = hash_attestation(&data2);
+
+        assert_ne!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_sign_attestation_format() {
+        let hash = "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab";
+        let signature = sign_attestation(hash);
+
+        assert!(signature.starts_with("placeholder_signature_v1:"));
+        assert!(signature.contains("abcd1234567890ab")); // First 16 chars of hash
+    }
+
+    #[test]
+    fn test_get_current_timestamp_format() {
+        let timestamp = get_current_timestamp();
+
+        // Should be ISO 8601 format
+        assert!(timestamp.contains("T"));
+        assert!(timestamp.ends_with("Z"));
+        // Should parse successfully as RFC3339
+        assert!(chrono::DateTime::parse_from_rfc3339(&timestamp).is_ok());
+    }
+
+    #[test]
+    fn test_attestation_data_serialization() {
+        let data = AttestationData {
+            total_outstanding_credits: "1000.00000000".to_string(),
+            total_main_balance: "800.00000000".to_string(),
+            total_promo_balance: "200.00000000".to_string(),
+            total_reserves_usd: "8.00".to_string(),
+            reserve_coverage_ratio: "1.00".to_string(),
+            timestamp: "2026-01-31T12:00:00.000Z".to_string(),
+        };
+
+        let json = serde_json::to_string(&data).unwrap();
+        assert!(json.contains("\"total_outstanding_credits\":"));
+        assert!(json.contains("\"total_main_balance\":"));
+        assert!(json.contains("\"total_promo_balance\":"));
+        assert!(json.contains("\"total_reserves_usd\":"));
+        assert!(json.contains("\"reserve_coverage_ratio\":"));
+        assert!(json.contains("\"timestamp\":"));
     }
 }
