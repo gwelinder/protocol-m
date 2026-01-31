@@ -229,6 +229,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updates promo_balance in m_credits_accounts (separate from transferable balance)
   - Expiry timestamp stored in ledger entry metadata for future expiration handling
   - 13 unit tests for DID validation, request/response serialization, and promo mint
+- US-012G: Implemented reserve attestation endpoint:
+  - GET /api/v1/credits/reserves for transparent reserve backing visibility
+  - Returns total outstanding credits (main + promo balances)
+  - Returns total USD reserves from completed purchase invoices
+  - Calculates reserve_coverage_ratio (only main balance is backed, promo not counted)
+  - Includes account_count and invoice_count for context
+  - Includes ISO 8601 timestamp with millisecond precision
+  - Generates SHA-256 attestation hash for verification
+  - Placeholder cryptographic signature (production would use server Ed25519 key)
+  - Handles edge cases: zero credits (ratio=1), reserves without credits (ratio=999999)
+  - 14 unit tests for coverage ratio calculation, serialization, and timestamp format
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

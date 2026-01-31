@@ -1026,8 +1026,8 @@
         "Typecheck passes"
       ],
       "priority": 62,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented GET /api/v1/credits/reserves with total_outstanding_credits (main+promo), total_reserves_usd, reserve_coverage_ratio (main balance only, promo not backed), account/invoice counts, timestamp, attestation hash (SHA-256), and placeholder signature; 14 unit tests; 239 total tests pass"
     },
     {
       "id": "US-013A",
