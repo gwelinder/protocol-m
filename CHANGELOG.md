@@ -487,6 +487,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Status helpers (is_pending, is_approved, is_rejected, is_expired, is_valid)
   - Metadata accessors (delegate_to_did, description)
   - 16 unit tests, 408 total tests pass
+- US-018B: Implemented approval check in bounty posting:
+  - user_policies table for DID-linked spending policies (migration 21)
+  - pending_approval bounty status for high-value bounties (migration 22)
+  - UserPolicy model with requires_approval() checking against policy tiers
+  - Modified create_bounty to load policy and check if approval needed
+  - If approval required: bounty status=pending_approval, no escrow, approval_request created
+  - CreateBountyResponse now includes approval_request_id field
+  - Notification placeholder using tracing::info (production would send email/webhook/Slack)
+  - 10 new unit tests, 429 total tests pass
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

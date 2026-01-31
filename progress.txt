@@ -1142,3 +1142,23 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - 16 new tests for serialization, deserialization, factory methods, status helpers
   - Total tests now: 38 CLI + 90+ crypto + 408 server + 2 doctests = 408 running, 5 ignored
 ---
+
+## 2026-01-31 - US-018B
+- What was implemented: Approval check in bounty posting for high-value bounties
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000021_create_user_policies_table.sql` - New migration for user_policies table with DID-linked spending policies
+  - `crates/openclaw-server/migrations/20260131000022_add_pending_approval_bounty_status.sql` - Add pending_approval to bounty_status enum
+  - `crates/openclaw-server/src/models/user_policy.rs` - New UserPolicy, NewUserPolicy, ApprovalTier, NotificationChannel models with requires_approval() logic
+  - `crates/openclaw-server/src/models.rs` - Added user_policy module exports
+  - `crates/openclaw-server/src/models/bounty.rs` - Added PendingApproval status and is_pending_approval() helper
+  - `crates/openclaw-server/src/routes/bounties.rs` - Added load_user_policy, create_approval_request, send_approval_notification functions; modified create_bounty to check policy and require approval if needed; updated CreateBountyResponse with approval_request_id field
+- **Learnings for future iterations:**
+  - Use requires_approval(&amount) to check if any tier's threshold is exceeded
+  - Multiple tiers: select the highest matching threshold that requires approval
+  - When approval required: create bounty with status=pending_approval, create approval_request, send notification, return early (no escrow)
+  - CreateBountyResponse fields escrow_id and ledger_id are now Option<Uuid> to handle pending approval case
+  - Notification is a placeholder using tracing::info - production would implement email/webhook/Slack
+  - User policy is loaded per-DID from user_policies table; None policy means no approval required
+  - 10 new unit tests for policy approval logic
+  - 429 total tests pass (429 server + 5 ignored integration tests)
+---
