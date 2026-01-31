@@ -88,6 +88,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-008C: Implemented POST /api/v1/identity/challenge endpoint for DID binding flow
 - US-008C: Added identity routes module with router and create_challenge handler
 - US-008C: Generates random 32-byte challenge (hex-encoded), 10-minute expiry
+- US-008D: Implemented POST /api/v1/identity/bind endpoint for linking DIDs to accounts
+- US-008D: Added signature verification over challenge bytes
+- US-008D: Added transaction handling for atomic binding creation and challenge consumption
+- US-008D: Added 8 unit tests for signature verification and validation
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
