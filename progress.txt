@@ -913,3 +913,18 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - Release ledger event uses NewMCreditsLedger::release() factory method (from_did=None, to_did=recipient)
   - 267 total tests pass (11 new tests for escrow release and reputation)
 ---
+
+## 2026-01-31 - US-014E
+- What was implemented: Record attribution for bounty completions by auto-registering artifacts
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000014_add_submission_artifact_id.sql` - Migration adding artifact_id column to bounty_submissions with FK to artifacts
+  - `crates/openclaw-server/src/models/bounty_submission.rs` - Added artifact_id field to BountySubmission struct, has_artifact() and artifact_id() helper methods, 2 new unit tests
+  - `crates/openclaw-server/src/routes/bounties.rs` - Added register_submission_artifact function (checks existing, registers new, creates derivations); get_parent_artifact_from_metadata, resolve_parent_artifact, detect_cycle_for_derivation, create_derivation_link helper functions; updated submit_bounty to call registration on approval; 10 new unit tests
+- **Learnings for future iterations:**
+  - Check for existing artifacts by hash before registering to avoid duplicates
+  - parent_artifact_id can be in bounty metadata (supports both snake_case and camelCase)
+  - Artifact metadata is enriched with bounty context (bounty_id, bounty_title) when registering
+  - Cycle detection for derivations reuses the same DFS pattern as artifacts.rs
+  - Use ON CONFLICT DO NOTHING for derivation inserts to handle duplicates gracefully
+  - 279 total tests pass (10 new tests for attribution recording)
+---

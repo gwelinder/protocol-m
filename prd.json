@@ -1162,8 +1162,8 @@
         "Typecheck passes"
       ],
       "priority": 70,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented register_submission_artifact function to auto-register artifacts on approval; checks for existing artifacts by hash; creates derivation links from parent_artifact_id in bounty metadata with cycle detection; updates submission with artifact_id reference; added migration 20260131000014 for artifact_id column; updated BountySubmission model with artifact_id field; 10 new unit tests; 279 total tests pass"
     },
     {
       "id": "US-015A",

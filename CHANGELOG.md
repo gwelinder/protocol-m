@@ -324,6 +324,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated success message to indicate escrow released
   - 11 new unit tests for escrow release metadata, reputation weights, and response serialization
   - 267 total tests pass
+- US-014E: Implemented attribution recording for bounty completions:
+  - Added migration 20260131000014 adding artifact_id column to bounty_submissions table
+  - Added artifact_id field to BountySubmission model with has_artifact() and artifact_id() helpers
+  - Added register_submission_artifact function that:
+    - Checks if artifact already exists by hash before registering
+    - Registers new artifacts with signature envelope if not found
+    - Enriches metadata with bounty context (bounty_id, bounty_title)
+    - Checks for parent_artifact_id in bounty metadata (supports snake_case and camelCase)
+    - Creates derivation links with cycle detection
+    - Updates submission with artifact_id reference
+  - Helper functions: get_parent_artifact_from_metadata, resolve_parent_artifact, detect_cycle_for_derivation, create_derivation_link
+  - Integrated artifact registration into submit_bounty approval flow
+  - 10 new unit tests for attribution functionality
+  - 279 total tests pass
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
