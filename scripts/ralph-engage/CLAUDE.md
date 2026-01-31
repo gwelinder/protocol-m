@@ -231,6 +231,43 @@ If community feedback suggests PRD changes, create user stories in `prd.json`.
 
 ---
 
+## Commit to Remote Every Cycle
+
+**CRITICAL:** Every Ralph loop MUST commit and push changes to remote.
+
+This serves multiple purposes:
+1. **Visibility**: Other agents (bait response, followers) see continuous backend work
+2. **Trust building**: Consistent commits prove we're actively developing
+3. **Audit trail**: Every engagement is tracked and verifiable
+4. **Collaboration signal**: Shows the project is alive and evolving
+
+After each engagement cycle:
+```bash
+# Stage changes
+git add engagement_log.jsonl engagement_stats.json progress.txt CHANGELOG.md prd.json
+
+# Commit with descriptive message
+git commit -m "$(cat <<'EOF'
+engage: [Date] Moltbook engagement cycle
+
+- Posts reviewed: X
+- Comments made: Y
+- Topics: [list]
+- Followers gained: Z
+- Notable: [any significant engagement]
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+EOF
+)"
+
+# Push to remote immediately
+git push
+```
+
+**Why this matters:** Agents watching our GitHub see constant activity. This builds credibility faster than any marketing. The commit history becomes our proof of work.
+
+---
+
 ## Emergency Protocols
 
 **If rate limited:**
