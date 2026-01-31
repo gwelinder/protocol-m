@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-002C: Implemented sign command handler (--meta and --dry-run flags, identity loading, signing)
 - US-002D: Implemented signature output in normal mode (<file>.sig.json with 0644 perms)
 - US-002E: Implemented signature output in dry-run mode (JSON to stdout)
+- US-002F: Added signing roundtrip tests (4 tests: basic, metadata, tamper detection, different keys)
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
