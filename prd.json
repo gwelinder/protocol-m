@@ -1177,8 +1177,8 @@
         "Typecheck passes"
       ],
       "priority": 71,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000015 with provider_type enum (openai, anthropic, gpu_provider), conversion_rate NUMERIC(20,8), is_active boolean, indexes, updated_at trigger; default OpenAI/Anthropic providers; ComputeProvider/NewComputeProvider/ProviderType models with factory methods and helpers; 8 unit tests; 287 total tests pass"
     },
     {
       "id": "US-015B",

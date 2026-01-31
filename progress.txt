@@ -928,3 +928,17 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - Use ON CONFLICT DO NOTHING for derivation inserts to handle duplicates gracefully
   - 279 total tests pass (10 new tests for attribution recording)
 ---
+
+## 2026-01-31 - US-015A
+- What was implemented: Created compute_providers table and Rust models for credit redemption providers
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000015_create_compute_providers_table.sql` - Migration with provider_type enum, indexes, default providers
+  - `crates/openclaw-server/src/models/compute_provider.rs` - ComputeProvider, NewComputeProvider, ProviderType models with 8 unit tests
+  - `crates/openclaw-server/src/models.rs` - Added compute_provider module and re-exports
+- **Learnings for future iterations:**
+  - ProviderType enum uses rename_all = "snake_case" to map GpuProvider to gpu_provider in database
+  - Default providers are seeded with ON CONFLICT (name) DO NOTHING for idempotent migration
+  - conversion_rate represents M-credits per unit of compute (e.g., per 1000 tokens)
+  - is_active boolean allows disabling providers without deleting them
+  - 287 total tests pass (8 new compute_provider tests)
+---

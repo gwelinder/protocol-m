@@ -337,6 +337,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Helper functions: get_parent_artifact_from_metadata, resolve_parent_artifact, detect_cycle_for_derivation, create_derivation_link
   - Integrated artifact registration into submit_bounty approval flow
   - 10 new unit tests for attribution functionality
+
+#### Credit Redemption System (US-015A) — Compute Provider Tracking
+- US-015A: Created compute_providers table for tracking credit redemption providers:
+  - Migration 20260131000015 with provider_type enum (openai, anthropic, gpu_provider)
+  - compute_providers table with name, api_endpoint, conversion_rate NUMERIC(20,8), is_active boolean
+  - Indexes on provider_type and is_active for efficient queries
+  - Unique constraint on provider name to prevent duplicates
+  - Automatic updated_at trigger for tracking configuration changes
+  - Default providers seeded: OpenAI and Anthropic with placeholder conversion rates
+- US-015A: Implemented ComputeProvider model with:
+  - ProviderType enum with serde/sqlx serialization
+  - ComputeProvider struct with is_available(), has_endpoint(), credits_for_units() helpers
+  - NewComputeProvider with factory methods: openai(), anthropic(), gpu()
+  - 8 unit tests for serialization and helper methods
+  - 287 total tests pass
   - 279 total tests pass
 
 - Project scaffolding and fixtures directory
