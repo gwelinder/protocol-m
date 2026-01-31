@@ -1010,8 +1010,8 @@
         "Typecheck passes"
       ],
       "priority": 61,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added PromoMint event type to MCreditsEventType enum; migration 20260131000010 adds promo_mint to PostgreSQL enum; grant_promo_credits enforces 100 credits lifetime limit per DID; POST /api/v1/credits/grant-promo endpoint with optional expiry; 13 new unit tests; 227 total tests pass"
     },
     {
       "id": "US-012G",

@@ -220,6 +220,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Placeholder signature verification (production uses stripe crate for real verification)
   - External payment reference tracking in ledger metadata
   - 17 unit tests for event parsing, invoice ID extraction, and response serialization
+- US-012F: Implemented promo credit grants:
+  - Added promo_mint event type to MCreditsEventType enum with serde/sqlx serialization
+  - Migration 20260131000010 adds promo_mint value to PostgreSQL enum
+  - grant_promo_credits function with 100 credits lifetime limit per DID
+  - Validates total promo credits across all ledger entries before granting
+  - POST /api/v1/credits/grant-promo admin endpoint with optional expiry support
+  - Updates promo_balance in m_credits_accounts (separate from transferable balance)
+  - Expiry timestamp stored in ledger entry metadata for future expiration handling
+  - 13 unit tests for DID validation, request/response serialization, and promo mint
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
