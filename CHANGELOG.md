@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-#### Core Infrastructure (US-001A to US-001J) ✓
+#### Core Infrastructure (US-001A to US-001K) ✓
 - US-001A: Created Rust workspace structure with `openclaw-crypto` and `openclaw-cli` crates
 - US-001B: Added core cryptographic dependencies (ed25519-dalek, serde_jcs, sha2)
 - US-001C: Defined signature envelope types (HashRef, ArtifactInfo, SignatureEnvelopeV1)
@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-001H: Added age encryption dependency to CLI crate for private key protection
 - US-001I: Implemented private key encryption with age passphrase protection
 - US-001J: Implemented private key decryption with graceful wrong passphrase handling
+- US-001K: Implemented file permission checks (0700 for dirs, 0600 for keyfiles, Windows bypass)
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
