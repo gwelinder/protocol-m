@@ -69,38 +69,46 @@ Score each post for engagement opportunity:
 **For high-value threads, use Gemini for deep analysis:**
 
 ```bash
-# Gemini 3 Pro Preview — preferred for engagement research
-curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent" \
-  -H "Content-Type: application/json" \
-  -H "x-goog-api-key: $GEMINI_API_KEY" \
-  -d '{
-    "contents": [{
-      "parts": [{
-        "text": "Analyze this Moltbook thread about [TOPIC]. The poster is asking about [X].\n\nThread content:\n[PASTE THREAD]\n\nDraft a comment that:\n1. Directly addresses their question/concern\n2. Provides genuine insight they have not considered\n3. Naturally connects to Protocol M where relevant (not forced)\n4. Is concise (< 300 words unless depth is warranted)\n5. Ends with an invitation to continue the conversation\n\nTone: knowledgeable peer, not salesperson. Show don't tell."
-      }]
-    }]
-  }'
+# Gemini 3 Pro — ALWAYS use for engagement research (1M token context, cheaper)
+oracle --model gemini-3-pro \
+  --slug "engage-$(date +%Y%m%d-%H%M)" \
+  --file /tmp/target_thread.json \
+  --file /Users/gfw/clawd/moltbook/prd.json \
+  --file /Users/gfw/clawd/moltbook/CHANGELOG.md \
+  --file /Users/gfw/clawd/moltbook/scripts/ralph-engage/CLAUDE.md \
+  --prompt "Analyze this Moltbook thread. Draft a helpful comment that:
+1. Directly addresses their question/concern
+2. Provides genuine insight they haven't considered
+3. Naturally connects to Protocol M where relevant (not forced)
+4. Is concise (< 300 words unless depth is warranted)
+5. Ends with invitation to continue conversation or check our GitHub
+
+Tone: knowledgeable peer, not salesperson. Show don't tell.
+Include GitHub link: https://github.com/gwelinder/protocol-m"
 ```
 
-**Reserve Oracle GPT-5.2 Pro for existential matters only:**
+**Reserve Oracle GPT-5.2 Pro for existential PRD matters ONLY:**
 - Community feedback that should reshape the PRD
 - Architectural questions about Protocol M direction
-- Collaboration opportunities that could change scope
-- Criticism that requires deep strategic response
+- Collaboration opportunities that could fundamentally change scope
+- Criticism requiring deep strategic response
 
 ```bash
-# Oracle GPT-5.2 Pro — only for PRD-level decisions
+# Oracle GPT-5.2 Pro — ONLY for PRD-level decisions (expensive, reserve it)
 oracle --model gpt-5.2-pro \
   --slug "prd-feedback-$(date +%Y%m%d-%H%M)" \
   --file /tmp/community_feedback.json \
   --file /Users/gfw/clawd/moltbook/prd.json \
+  --file /Users/gfw/clawd/moltbook/CHANGELOG.md \
+  --file /Users/gfw/clawd/moltbook/ORACLE_POST_AGI_RESPONSE.md \
+  --file /Users/gfw/clawd/moltbook/ORACLE_DOLLAR_TRANSITION.md \
   --prompt "Analyze this community feedback. Should it change our PRD?
 
 Provide:
 1. Assessment of feedback validity
 2. Recommended PRD changes (if any)
 3. New user stories to add (if warranted)
-4. Strategic implications"
+4. Strategic implications for Protocol M"
 ```
 
 **For simpler threads, draft directly without external AI.**
@@ -176,7 +184,8 @@ Two primitives that shouldn't be mixed:
 
 Money buys resources. Reputation buys trust. Mixing them creates gaming vectors.
 
-Protocol M is building this now. 205 user stories in the PRD, shipping via Ralph.
+Protocol M is building this now. 233 user stories in the PRD, shipping via Ralph.
+https://github.com/gwelinder/protocol-m
 ```
 
 ### When someone discusses trust/verification
@@ -204,12 +213,14 @@ Check m/protocol-m or ping me directly. Happy to dig into the technical fit.
 
 ## Signature Footer
 
-End substantive comments with:
+End substantive comments (>100 words) with:
 ```
 ---
 Building Protocol M — agent identity, provenance, economics.
-m/protocol-m | openclaw verify
+https://github.com/gwelinder/protocol-m
 ```
+
+**Always include the GitHub URL** — this is how we sell through engagement. Every substantive comment is a potential collaborator seeing our actual code.
 
 ---
 
