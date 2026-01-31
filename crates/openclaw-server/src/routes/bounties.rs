@@ -109,10 +109,54 @@ pub struct SubmitBountyResponse {
     pub message: Option<String>,
 }
 
+/// Request body for accepting a bounty.
+/// Note: In production, user_id would come from authentication.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AcceptBountyRequest {
+    /// The user ID accepting the bounty.
+    /// In production, this would be extracted from auth token.
+    pub user_id: Uuid,
+}
+
+/// Response for successful bounty acceptance.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AcceptBountyResponse {
+    /// Whether the bounty was accepted successfully.
+    pub success: bool,
+    /// The bounty ID.
+    pub bounty_id: Uuid,
+    /// Title of the bounty.
+    pub title: String,
+    /// The new status of the bounty.
+    pub status: BountyStatus,
+    /// DID of the user who accepted the bounty.
+    pub accepter_did: String,
+    /// Instructions for submitting work.
+    pub submission_instructions: SubmissionInstructions,
+}
+
+/// Instructions for how to submit work to a bounty.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmissionInstructions {
+    /// The endpoint to submit work to.
+    pub endpoint: String,
+    /// How the bounty completion is verified.
+    pub closure_type: BountyClosureType,
+    /// Specific requirements based on closure type.
+    pub requirements: serde_json::Value,
+    /// Optional deadline for submission.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deadline: Option<String>,
+}
+
 /// Creates the bounties router.
 pub fn router(pool: PgPool) -> Router {
     Router::new()
         .route("/", post(create_bounty))
+        .route("/{id}/accept", post(accept_bounty))
         .route("/{id}/submit", post(submit_bounty))
         .with_state(pool)
 }
@@ -517,6 +561,136 @@ async fn create_bounty(
         status: bounty.status,
         escrow_id,
         ledger_id,
+    }))
+}
+
+// ===== Bounty Accept Endpoint =====
+
+/// Loads a bounty by ID for acceptance.
+/// Validates the bounty is open and not expired.
+async fn load_bounty_for_acceptance(pool: &PgPool, bounty_id: Uuid) -> Result<Bounty, AppError> {
+    let bounty: Option<Bounty> = sqlx::query_as(
+        r#"
+        SELECT id, poster_did, title, description, reward_credits, closure_type, status, metadata, created_at, updated_at, deadline
+        FROM bounties
+        WHERE id = $1
+        "#,
+    )
+    .bind(bounty_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query bounty: {}", e)))?;
+
+    let bounty = bounty.ok_or_else(|| AppError::NotFound(format!("Bounty not found: {}", bounty_id)))?;
+
+    // Check bounty is open for acceptance
+    if !bounty.is_open() {
+        return Err(AppError::BadRequest(format!(
+            "Bounty is not open for acceptance. Current status: {:?}",
+            bounty.status
+        )));
+    }
+
+    // Check bounty hasn't expired
+    if bounty.is_expired() {
+        return Err(AppError::BadRequest(
+            "Bounty has expired and can no longer be accepted".to_string(),
+        ));
+    }
+
+    Ok(bounty)
+}
+
+/// Updates the bounty status to in_progress.
+async fn set_bounty_in_progress(pool: &PgPool, bounty_id: Uuid) -> Result<(), AppError> {
+    sqlx::query(
+        r#"
+        UPDATE bounties
+        SET status = 'in_progress', updated_at = NOW()
+        WHERE id = $1
+        "#,
+    )
+    .bind(bounty_id)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to update bounty status: {}", e)))?;
+
+    Ok(())
+}
+
+/// Builds submission instructions based on closure type.
+fn build_submission_instructions(bounty: &Bounty) -> SubmissionInstructions {
+    let requirements = match bounty.closure_type {
+        BountyClosureType::Tests => {
+            let harness_hash = bounty.eval_harness_hash().unwrap_or_default();
+            json!({
+                "type": "tests",
+                "description": "Your submission must pass the automated test harness.",
+                "evalHarnessHash": harness_hash,
+                "requiredFields": ["signatureEnvelope", "executionReceipt"]
+            })
+        }
+        BountyClosureType::Quorum => {
+            let reviewer_count = bounty.reviewer_count().unwrap_or(3);
+            let min_rep = bounty.min_reviewer_rep().unwrap_or(0);
+            json!({
+                "type": "quorum",
+                "description": "Your submission will be reviewed by multiple peer reviewers.",
+                "reviewerCount": reviewer_count,
+                "minReviewerReputation": min_rep,
+                "requiredFields": ["signatureEnvelope"]
+            })
+        }
+        BountyClosureType::Requester => {
+            json!({
+                "type": "requester",
+                "description": "Your submission will be reviewed and approved by the bounty poster.",
+                "requiredFields": ["signatureEnvelope"]
+            })
+        }
+    };
+
+    SubmissionInstructions {
+        endpoint: format!("/api/v1/bounties/{}/submit", bounty.id),
+        closure_type: bounty.closure_type,
+        requirements,
+        deadline: bounty.deadline.map(|d| d.to_rfc3339()),
+    }
+}
+
+/// Accept a bounty and mark it as in_progress.
+/// Requires the user to have a bound DID.
+async fn accept_bounty(
+    State(pool): State<PgPool>,
+    Path(bounty_id): Path<Uuid>,
+    Json(request): Json<AcceptBountyRequest>,
+) -> Result<Json<AcceptBountyResponse>, AppError> {
+    // Step 1: Get user's bound DID (authentication + DID binding check)
+    let accepter_did = get_user_bound_did(&pool, request.user_id).await?;
+
+    // Step 2: Load and validate bounty
+    let bounty = load_bounty_for_acceptance(&pool, bounty_id).await?;
+
+    // Step 3: Check user isn't trying to accept their own bounty
+    if bounty.poster_did == accepter_did {
+        return Err(AppError::BadRequest(
+            "You cannot accept your own bounty".to_string(),
+        ));
+    }
+
+    // Step 4: Update bounty status to in_progress
+    set_bounty_in_progress(&pool, bounty_id).await?;
+
+    // Step 5: Build submission instructions
+    let submission_instructions = build_submission_instructions(&bounty);
+
+    Ok(Json(AcceptBountyResponse {
+        success: true,
+        bounty_id,
+        title: bounty.title,
+        status: BountyStatus::InProgress,
+        accepter_did,
+        submission_instructions,
     }))
 }
 
@@ -2485,5 +2659,180 @@ mod tests {
 
         assert_eq!(metadata["bounty_title"], "Fix Authentication Bug");
         assert_eq!(metadata["original_field"], "preserved");
+    }
+
+    // ===== Accept Bounty Endpoint Tests =====
+
+    #[test]
+    fn test_accept_bounty_request_deserialization() {
+        let json_str = r#"{"userId": "550e8400-e29b-41d4-a716-446655440000"}"#;
+        let request: AcceptBountyRequest = serde_json::from_str(json_str).unwrap();
+        assert_eq!(
+            request.user_id.to_string(),
+            "550e8400-e29b-41d4-a716-446655440000"
+        );
+    }
+
+    #[test]
+    fn test_accept_bounty_response_serialization() {
+        let response = AcceptBountyResponse {
+            success: true,
+            bounty_id: Uuid::parse_str("550e8400-e29b-41d4-a716-446655440001").unwrap(),
+            title: "Fix authentication bug".to_string(),
+            status: BountyStatus::InProgress,
+            accepter_did: "did:key:z6MkTest".to_string(),
+            submission_instructions: SubmissionInstructions {
+                endpoint: "/api/v1/bounties/550e8400-e29b-41d4-a716-446655440001/submit".to_string(),
+                closure_type: BountyClosureType::Tests,
+                requirements: json!({
+                    "type": "tests",
+                    "evalHarnessHash": "sha256:abc123"
+                }),
+                deadline: Some("2026-02-15T23:59:59Z".to_string()),
+            },
+        };
+
+        let json_str = serde_json::to_string(&response).unwrap();
+        assert!(json_str.contains("\"success\":true"));
+        assert!(json_str.contains("\"status\":\"in_progress\""));
+        assert!(json_str.contains("\"accepterDid\":\"did:key:z6MkTest\""));
+        assert!(json_str.contains("\"submissionInstructions\""));
+    }
+
+    #[test]
+    fn test_build_submission_instructions_tests() {
+        let bounty = Bounty {
+            id: Uuid::new_v4(),
+            poster_did: "did:key:z6MkPoster".to_string(),
+            title: "Test Bounty".to_string(),
+            description: "Description".to_string(),
+            reward_credits: BigDecimal::from_str("100.00000000").unwrap(),
+            closure_type: BountyClosureType::Tests,
+            status: BountyStatus::InProgress,
+            metadata: json!({ "eval_harness_hash": "sha256:test123" }),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            deadline: Some(chrono::Utc::now() + chrono::Duration::days(7)),
+        };
+
+        let instructions = build_submission_instructions(&bounty);
+
+        assert!(instructions.endpoint.contains("/submit"));
+        assert_eq!(instructions.closure_type, BountyClosureType::Tests);
+        assert_eq!(instructions.requirements["type"], "tests");
+        assert_eq!(instructions.requirements["evalHarnessHash"], "sha256:test123");
+        assert!(instructions.deadline.is_some());
+    }
+
+    #[test]
+    fn test_build_submission_instructions_quorum() {
+        let bounty = Bounty {
+            id: Uuid::new_v4(),
+            poster_did: "did:key:z6MkPoster".to_string(),
+            title: "Quorum Bounty".to_string(),
+            description: "Description".to_string(),
+            reward_credits: BigDecimal::from_str("200.00000000").unwrap(),
+            closure_type: BountyClosureType::Quorum,
+            status: BountyStatus::InProgress,
+            metadata: json!({ "reviewer_count": 5, "min_reviewer_rep": 50 }),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            deadline: None,
+        };
+
+        let instructions = build_submission_instructions(&bounty);
+
+        assert_eq!(instructions.closure_type, BountyClosureType::Quorum);
+        assert_eq!(instructions.requirements["type"], "quorum");
+        assert_eq!(instructions.requirements["reviewerCount"], 5);
+        assert_eq!(instructions.requirements["minReviewerReputation"], 50);
+        assert!(instructions.deadline.is_none());
+    }
+
+    #[test]
+    fn test_build_submission_instructions_requester() {
+        let bounty = Bounty {
+            id: Uuid::new_v4(),
+            poster_did: "did:key:z6MkPoster".to_string(),
+            title: "Requester Bounty".to_string(),
+            description: "Description".to_string(),
+            reward_credits: BigDecimal::from_str("50.00000000").unwrap(),
+            closure_type: BountyClosureType::Requester,
+            status: BountyStatus::InProgress,
+            metadata: json!({}),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            deadline: None,
+        };
+
+        let instructions = build_submission_instructions(&bounty);
+
+        assert_eq!(instructions.closure_type, BountyClosureType::Requester);
+        assert_eq!(instructions.requirements["type"], "requester");
+        assert!(instructions.requirements["requiredFields"].as_array().is_some());
+    }
+
+    #[test]
+    fn test_accept_bounty_response_without_deadline() {
+        let response = AcceptBountyResponse {
+            success: true,
+            bounty_id: Uuid::new_v4(),
+            title: "No Deadline Bounty".to_string(),
+            status: BountyStatus::InProgress,
+            accepter_did: "did:key:z6MkAccepter".to_string(),
+            submission_instructions: SubmissionInstructions {
+                endpoint: "/api/v1/bounties/123/submit".to_string(),
+                closure_type: BountyClosureType::Requester,
+                requirements: json!({ "type": "requester" }),
+                deadline: None,
+            },
+        };
+
+        let json_str = serde_json::to_string(&response).unwrap();
+        // deadline should be omitted from JSON when None
+        assert!(!json_str.contains("\"deadline\":null"));
+    }
+
+    #[test]
+    fn test_submission_instructions_includes_endpoint() {
+        let bounty = Bounty {
+            id: Uuid::parse_str("550e8400-e29b-41d4-a716-446655440099").unwrap(),
+            poster_did: "did:key:z6MkPoster".to_string(),
+            title: "Test".to_string(),
+            description: "Description".to_string(),
+            reward_credits: BigDecimal::from_str("100.00000000").unwrap(),
+            closure_type: BountyClosureType::Tests,
+            status: BountyStatus::InProgress,
+            metadata: json!({ "eval_harness_hash": "sha256:abc" }),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            deadline: None,
+        };
+
+        let instructions = build_submission_instructions(&bounty);
+        assert_eq!(
+            instructions.endpoint,
+            "/api/v1/bounties/550e8400-e29b-41d4-a716-446655440099/submit"
+        );
+    }
+
+    #[test]
+    fn test_submission_instructions_serialization() {
+        let instructions = SubmissionInstructions {
+            endpoint: "/api/v1/bounties/123/submit".to_string(),
+            closure_type: BountyClosureType::Tests,
+            requirements: json!({
+                "type": "tests",
+                "evalHarnessHash": "sha256:abc",
+                "requiredFields": ["signatureEnvelope", "executionReceipt"]
+            }),
+            deadline: Some("2026-02-28T23:59:59Z".to_string()),
+        };
+
+        let json_str = serde_json::to_string(&instructions).unwrap();
+        assert!(json_str.contains("\"closureType\":\"tests\""));
+        assert!(json_str.contains("\"requiredFields\""));
+        assert!(json_str.contains("signatureEnvelope"));
+        assert!(json_str.contains("executionReceipt"));
     }
 }

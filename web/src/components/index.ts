@@ -1,3 +1,7 @@
+export { AcceptBountyModal } from './AcceptBountyModal'
+export type { AcceptBountyModalProps, SubmissionInstructions } from './AcceptBountyModal'
+export { BountyCard } from './BountyCard'
+export type { BountyCardProps, ClosureType, BountyStatus } from './BountyCard'
 export { IdentityBadge } from './IdentityBadge'
 export type { IdentityBadgeProps } from './IdentityBadge'
 export { PostCard } from './PostCard'

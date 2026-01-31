@@ -29,6 +29,10 @@ export interface BountyCardProps {
   deadline?: string | Date | null
   /** Optional click handler for viewing details */
   onClick?: () => void
+  /** Optional handler for accepting the bounty */
+  onAccept?: (bountyId: string) => void
+  /** Whether the accept button should be disabled */
+  acceptDisabled?: boolean
 }
 
 /**
@@ -124,6 +128,8 @@ export function BountyCard({
   createdAt,
   deadline,
   onClick,
+  onAccept,
+  acceptDisabled,
 }: BountyCardProps) {
   const truncatedDescription =
     description.length > 200 ? `${description.slice(0, 200)}...` : description
@@ -302,6 +308,71 @@ export function BountyCard({
           </time>
         )}
       </footer>
+
+      {/* Accept button row - only show for open bounties */}
+      {status === 'open' && !isExpired && onAccept && (
+        <div
+          style={{
+            marginTop: '12px',
+            paddingTop: '12px',
+            borderTop: '1px solid #f3f4f6',
+            display: 'flex',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onAccept(id)
+            }}
+            disabled={acceptDisabled}
+            style={{
+              padding: '8px 16px',
+              fontSize: '13px',
+              fontWeight: 500,
+              border: 'none',
+              borderRadius: '6px',
+              backgroundColor: acceptDisabled ? '#e5e7eb' : '#6366f1',
+              color: acceptDisabled ? '#9ca3af' : '#ffffff',
+              cursor: acceptDisabled ? 'not-allowed' : 'pointer',
+              transition: 'background-color 0.15s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            onMouseEnter={(e) => {
+              if (!acceptDisabled) {
+                e.currentTarget.style.backgroundColor = '#4f46e5'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!acceptDisabled) {
+                e.currentTarget.style.backgroundColor = '#6366f1'
+              }
+            }}
+            aria-label={`Accept bounty: ${title}`}
+          >
+            {/* Hand raised icon */}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
+              <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
+              <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
+              <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+            </svg>
+            Accept Bounty
+          </button>
+        </div>
+      )}
     </article>
   )
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { BountyCard, ClosureType, BountyStatus } from '@/components/BountyCard'
+import { AcceptBountyModal, SubmissionInstructions } from '@/components/AcceptBountyModal'
 
 /** Bounty data from API */
 interface Bounty {
@@ -155,6 +156,27 @@ export default function MarketplacePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Accept bounty modal state
+  const [selectedBounty, setSelectedBounty] = useState<Bounty | null>(null)
+  const [isAcceptModalOpen, setIsAcceptModalOpen] = useState(false)
+
+  // Mock user state - in production, this would come from auth context
+  // For development, we simulate a user with/without bound DID
+  const [userDid, setUserDid] = useState<string | null>(null)
+  const hasBoundDid = userDid !== null
+
+  // Simulate fetching user DID status on mount
+  useEffect(() => {
+    // In production: fetch from /api/v1/profile/{userId}/dids
+    // For demo, simulate a bound DID after a short delay
+    const timer = setTimeout(() => {
+      // Uncomment to simulate user WITH bound DID:
+      setUserDid('did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw')
+      // Keep null to simulate user WITHOUT bound DID
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
+
   // Filter state - initialized from URL params
   const [search, setSearch] = useState(searchParams.get('q') ?? '')
   const [closureType, setClosureType] = useState<ClosureType | 'all'>(
@@ -244,6 +266,69 @@ export default function MarketplacePage() {
     setSortBy('newest')
     router.push('/marketplace', { scroll: false })
   }, [router])
+
+  // Handle accepting a bounty
+  const handleAcceptBounty = useCallback((bountyId: string) => {
+    const bounty = bounties.find(b => b.id === bountyId)
+    if (bounty) {
+      setSelectedBounty(bounty)
+      setIsAcceptModalOpen(true)
+    }
+  }, [bounties])
+
+  // Handle navigating to bind DID page
+  const handleNavigateToBindDid = useCallback(() => {
+    setIsAcceptModalOpen(false)
+    router.push('/bind-identity')
+  }, [router])
+
+  // Handle confirming bounty acceptance
+  const handleConfirmAccept = useCallback(async (bountyId: string): Promise<SubmissionInstructions | null> => {
+    // In production, this would:
+    // 1. Call POST /api/v1/bounties/{bountyId}/accept with the user's auth token
+    // 2. Return the submission instructions from the response
+
+    // For demo, simulate API call
+    await new Promise(resolve => setTimeout(resolve, 800))
+
+    // Mock response based on the bounty
+    const bounty = bounties.find(b => b.id === bountyId)
+    if (!bounty) return null
+
+    // Update the bounty status in local state
+    setBounties(prev => prev.map(b =>
+      b.id === bountyId ? { ...b, status: 'in_progress' as BountyStatus } : b
+    ))
+
+    // Return mock submission instructions
+    const mockInstructions: SubmissionInstructions = {
+      endpoint: `/api/v1/bounties/${bountyId}/submit`,
+      closureType: bounty.closure_type,
+      requirements: {
+        type: bounty.closure_type,
+        description: bounty.closure_type === 'tests'
+          ? 'Your submission must pass the automated test harness.'
+          : bounty.closure_type === 'quorum'
+          ? 'Your submission will be reviewed by multiple peer reviewers.'
+          : 'Your submission will be reviewed and approved by the bounty poster.',
+        evalHarnessHash: bounty.closure_type === 'tests' ? 'sha256:abc123def456...' : undefined,
+        reviewerCount: bounty.closure_type === 'quorum' ? 3 : undefined,
+        minReviewerReputation: bounty.closure_type === 'quorum' ? 50 : undefined,
+        requiredFields: bounty.closure_type === 'tests'
+          ? ['signatureEnvelope', 'executionReceipt']
+          : ['signatureEnvelope']
+      },
+      deadline: bounty.deadline
+    }
+
+    return mockInstructions
+  }, [bounties])
+
+  // Close the accept modal
+  const handleCloseAcceptModal = useCallback(() => {
+    setIsAcceptModalOpen(false)
+    setSelectedBounty(null)
+  }, [])
 
   // Check if any filters are active
   const hasActiveFilters =
@@ -677,9 +762,26 @@ export default function MarketplacePage() {
                 // TODO: Navigate to bounty details page
                 console.log('View bounty:', bounty.id)
               }}
+              onAccept={handleAcceptBounty}
             />
           ))}
         </div>
+      )}
+
+      {/* Accept Bounty Modal */}
+      {selectedBounty && (
+        <AcceptBountyModal
+          isOpen={isAcceptModalOpen}
+          onClose={handleCloseAcceptModal}
+          bountyId={selectedBounty.id}
+          bountyTitle={selectedBounty.title}
+          rewardCredits={selectedBounty.reward_credits}
+          closureType={selectedBounty.closure_type}
+          hasBoundDid={hasBoundDid}
+          onNavigateToBindDid={handleNavigateToBindDid}
+          onConfirmAccept={handleConfirmAccept}
+          userDid={userDid ?? undefined}
+        />
       )}
     </main>
   )
