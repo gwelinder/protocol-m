@@ -2,4 +2,4 @@
 
 pub mod artifact;
 
-pub use artifact::Artifact;
+pub use artifact::{Artifact, NewArtifact};
