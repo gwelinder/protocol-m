@@ -128,6 +128,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-009C: Created profile page at /profile/[userId]
 - US-009C: Created bind-identity instructions page at /bind-identity
 
+#### Post Signature Verification (US-010A) — Database Schema
+- US-010A: Created migration for posts table signature fields
+- US-010A: Added verification_status enum (none, invalid, valid_unbound, valid_bound)
+- US-010A: Added signature_envelope_json (JSONB nullable) column
+- US-010A: Added verified_did (text nullable) column
+- US-010A: Added indexes on verification_status and verified_did
+- US-010A: Created Post, NewPost, and VerificationStatus model types with 5 unit tests
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation

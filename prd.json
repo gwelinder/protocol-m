@@ -825,8 +825,8 @@
         "Typecheck passes"
       ],
       "priority": 50,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000006 with verification_status enum, signature_envelope_json (JSONB), verified_did columns, and indexes; added Post/NewPost/VerificationStatus model types with 5 unit tests; 145 tests pass"
     },
     {
       "id": "US-010B",
