@@ -160,6 +160,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Post content with pre-wrap formatting
   - Upvote and comment count buttons in footer
   - Props for verification_status and verified_did
+- US-011C: Created SignatureModal component with:
+  - Full envelope JSON display with syntax highlighting (keys purple, strings green, numbers blue)
+  - Summary fields showing DID, hash, timestamp, signature with truncation
+  - Copy JSON button with visual feedback on success
+  - Opens when clicking VerifiedBadge (requires signatureEnvelope prop)
+  - Escape key and backdrop click to close modal
+  - Updated PostCard to pass signatureEnvelope to VerifiedBadge
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
