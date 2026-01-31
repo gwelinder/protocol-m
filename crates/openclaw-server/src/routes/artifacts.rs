@@ -51,7 +51,7 @@ fn default_depth() -> u32 {
 const MAX_ATTRIBUTION_DEPTH: u32 = 10;
 
 /// A parent artifact in the attribution graph.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AttributionNode {
     /// The artifact ID.
     pub artifact_id: Uuid,
@@ -69,13 +69,24 @@ pub struct AttributionNode {
     pub metadata: Option<serde_json::Value>,
 }
 
+/// A group of parent artifacts at a specific depth level.
+#[derive(Debug, Serialize)]
+pub struct DepthLevel {
+    /// The depth level (1 = direct parent, 2 = grandparent, etc.).
+    pub depth: u32,
+    /// Parent artifacts at this depth level, ordered by timestamp (newest first).
+    pub artifacts: Vec<AttributionNode>,
+}
+
 /// Response for the attribution endpoint.
 #[derive(Debug, Serialize)]
 pub struct AttributionResponse {
     /// The queried artifact ID.
     pub artifact_id: Uuid,
-    /// List of parent artifacts with attribution information.
+    /// Flat list of parent artifacts with attribution information (for backwards compatibility).
     pub parents: Vec<AttributionNode>,
+    /// Parent artifacts grouped by depth level.
+    pub levels: Vec<DepthLevel>,
     /// Maximum depth returned.
     pub max_depth: u32,
 }
@@ -105,11 +116,35 @@ async fn get_attribution(
     // Traverse the derivation graph up to the specified depth
     let parents = traverse_attribution(&pool, id, depth).await?;
 
+    // Group parents by depth level
+    let levels = group_by_depth(&parents);
+
     Ok(Json(AttributionResponse {
         artifact_id: id,
         parents,
+        levels,
         max_depth: depth,
     }))
+}
+
+/// Groups attribution nodes by their depth level.
+fn group_by_depth(nodes: &[AttributionNode]) -> Vec<DepthLevel> {
+    use std::collections::BTreeMap;
+
+    // Use BTreeMap to keep depths in order
+    let mut by_depth: BTreeMap<u32, Vec<AttributionNode>> = BTreeMap::new();
+
+    for node in nodes {
+        by_depth
+            .entry(node.depth)
+            .or_default()
+            .push(node.clone());
+    }
+
+    by_depth
+        .into_iter()
+        .map(|(depth, artifacts)| DepthLevel { depth, artifacts })
+        .collect()
 }
 
 /// Traverses the attribution graph recursively up to the specified depth.
@@ -880,26 +915,28 @@ mod tests {
 
     #[test]
     fn test_attribution_response_serialization() {
+        let node = AttributionNode {
+            artifact_id: Uuid::parse_str("550e8400-e29b-41d4-a716-446655440001").unwrap(),
+            did: "did:key:z6MkTest...".to_string(),
+            timestamp: DateTime::parse_from_rfc3339("2026-01-31T10:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            description: Some("Initial contribution".to_string()),
+            depth: 1,
+            metadata: Some(serde_json::json!({"author": "Alice"})),
+        };
+
         let response = AttributionResponse {
             artifact_id: Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap(),
-            parents: vec![
-                AttributionNode {
-                    artifact_id: Uuid::parse_str("550e8400-e29b-41d4-a716-446655440001").unwrap(),
-                    did: "did:key:z6MkTest...".to_string(),
-                    timestamp: DateTime::parse_from_rfc3339("2026-01-31T10:00:00Z")
-                        .unwrap()
-                        .with_timezone(&Utc),
-                    description: Some("Initial contribution".to_string()),
-                    depth: 1,
-                    metadata: Some(serde_json::json!({"author": "Alice"})),
-                },
-            ],
+            parents: vec![node.clone()],
+            levels: vec![DepthLevel { depth: 1, artifacts: vec![node] }],
             max_depth: 3,
         };
 
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("550e8400-e29b-41d4-a716-446655440000"));
         assert!(json.contains("parents"));
+        assert!(json.contains("levels"));
         assert!(json.contains("max_depth"));
         assert!(json.contains("did:key:z6MkTest..."));
         assert!(json.contains("Initial contribution"));
@@ -933,5 +970,109 @@ mod tests {
         assert_eq!(0_u32.clamp(1, MAX_ATTRIBUTION_DEPTH), 1);
         assert_eq!(5_u32.clamp(1, MAX_ATTRIBUTION_DEPTH), 5);
         assert_eq!(15_u32.clamp(1, MAX_ATTRIBUTION_DEPTH), 10);
+    }
+
+    #[test]
+    fn test_group_by_depth_empty() {
+        let nodes: Vec<AttributionNode> = vec![];
+        let levels = group_by_depth(&nodes);
+        assert!(levels.is_empty());
+    }
+
+    #[test]
+    fn test_group_by_depth_single_level() {
+        let nodes = vec![
+            AttributionNode {
+                artifact_id: Uuid::new_v4(),
+                did: "did:key:z6Mk1...".to_string(),
+                timestamp: Utc::now(),
+                description: None,
+                depth: 1,
+                metadata: None,
+            },
+            AttributionNode {
+                artifact_id: Uuid::new_v4(),
+                did: "did:key:z6Mk2...".to_string(),
+                timestamp: Utc::now(),
+                description: None,
+                depth: 1,
+                metadata: None,
+            },
+        ];
+        let levels = group_by_depth(&nodes);
+        assert_eq!(levels.len(), 1);
+        assert_eq!(levels[0].depth, 1);
+        assert_eq!(levels[0].artifacts.len(), 2);
+    }
+
+    #[test]
+    fn test_group_by_depth_multiple_levels() {
+        let nodes = vec![
+            AttributionNode {
+                artifact_id: Uuid::new_v4(),
+                did: "did:key:z6Mk1...".to_string(),
+                timestamp: Utc::now(),
+                description: None,
+                depth: 1,
+                metadata: None,
+            },
+            AttributionNode {
+                artifact_id: Uuid::new_v4(),
+                did: "did:key:z6Mk2...".to_string(),
+                timestamp: Utc::now(),
+                description: None,
+                depth: 2,
+                metadata: None,
+            },
+            AttributionNode {
+                artifact_id: Uuid::new_v4(),
+                did: "did:key:z6Mk3...".to_string(),
+                timestamp: Utc::now(),
+                description: None,
+                depth: 1,
+                metadata: None,
+            },
+            AttributionNode {
+                artifact_id: Uuid::new_v4(),
+                did: "did:key:z6Mk4...".to_string(),
+                timestamp: Utc::now(),
+                description: None,
+                depth: 3,
+                metadata: None,
+            },
+        ];
+        let levels = group_by_depth(&nodes);
+        assert_eq!(levels.len(), 3);
+        // BTreeMap keeps order by key
+        assert_eq!(levels[0].depth, 1);
+        assert_eq!(levels[0].artifacts.len(), 2);
+        assert_eq!(levels[1].depth, 2);
+        assert_eq!(levels[1].artifacts.len(), 1);
+        assert_eq!(levels[2].depth, 3);
+        assert_eq!(levels[2].artifacts.len(), 1);
+    }
+
+    #[test]
+    fn test_depth_level_serialization() {
+        let level = DepthLevel {
+            depth: 2,
+            artifacts: vec![
+                AttributionNode {
+                    artifact_id: Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap(),
+                    did: "did:key:z6Mk...".to_string(),
+                    timestamp: DateTime::parse_from_rfc3339("2026-01-31T12:00:00Z")
+                        .unwrap()
+                        .with_timezone(&Utc),
+                    description: Some("Test".to_string()),
+                    depth: 2,
+                    metadata: None,
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&level).unwrap();
+        assert!(json.contains("\"depth\":2"));
+        assert!(json.contains("\"artifacts\""));
+        assert!(json.contains("550e8400-e29b-41d4-a716-446655440000"));
     }
 }
