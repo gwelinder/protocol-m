@@ -1445,8 +1445,8 @@
         "Typecheck passes"
       ],
       "priority": 87,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 'openclaw reject <request_id>' CLI command with --server, --reason, and --yes flags; added POST /api/v1/approvals/{id}/reject endpoint; validates operator DID, checks pending status and expiry; cancels bounty and marks approval request as rejected; sends rejection notification to requester (placeholder); prompts for rejection reason interactively or accepts via --reason flag; 4 new unit tests; 442 total tests pass"
     },
     {
       "id": "US-019A",

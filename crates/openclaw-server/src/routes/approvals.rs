@@ -97,11 +97,40 @@ pub struct ApproveResponse {
     pub ledger_id: Option<Uuid>,
 }
 
+/// Request body for rejecting an approval request.
+/// Note: In production, operator_did would come from authentication.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RejectRequest {
+    /// DID of the operator rejecting the request.
+    /// In production, this would be extracted from auth token.
+    pub operator_did: String,
+    /// Reason for rejection.
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+/// Response for successful rejection.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RejectResponse {
+    /// Whether the rejection was successful.
+    pub success: bool,
+    /// The approval request ID.
+    pub approval_request_id: Uuid,
+    /// Message explaining the result.
+    pub message: String,
+    /// The bounty ID (if action_type was spend).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bounty_id: Option<Uuid>,
+}
+
 /// Creates the approvals router.
 pub fn router(pool: PgPool) -> Router {
     Router::new()
         .route("/{id}", get(get_approval_request))
         .route("/{id}/approve", post(approve_request))
+        .route("/{id}/reject", post(reject_request))
         .with_state(pool)
 }
 
@@ -232,6 +261,88 @@ async fn approve_request(
     }
 }
 
+/// Rejects an approval request and cancels the bounty creation.
+async fn reject_request(
+    State(pool): State<PgPool>,
+    Path(request_id): Path<Uuid>,
+    Json(request): Json<RejectRequest>,
+) -> Result<Json<RejectResponse>, AppError> {
+    // Load and validate approval request
+    let approval_request = load_approval_request(&pool, request_id).await?;
+
+    // Verify operator DID matches
+    if approval_request.operator_did != request.operator_did {
+        return Err(AppError::Forbidden(
+            "Only the designated operator can reject this request".to_string(),
+        ));
+    }
+
+    // Check if request is still valid
+    if !approval_request.is_pending() {
+        return Err(AppError::BadRequest(format!(
+            "Approval request is not pending (status: {})",
+            approval_request.status.as_str()
+        )));
+    }
+
+    if approval_request.is_past_expiry() {
+        // Mark as expired
+        mark_approval_expired(&pool, request_id).await?;
+        return Err(AppError::BadRequest(
+            "Approval request has expired".to_string(),
+        ));
+    }
+
+    // Handle based on action type
+    match approval_request.action_type {
+        ApprovalActionType::Spend => {
+            // Load the bounty
+            let bounty_id = approval_request.bounty_id.ok_or_else(|| {
+                AppError::Internal("Spend approval missing bounty_id".to_string())
+            })?;
+            let bounty = load_bounty(&pool, bounty_id).await?;
+
+            // Verify bounty is in pending_approval status
+            if bounty.status != BountyStatus::PendingApproval {
+                return Err(AppError::BadRequest(format!(
+                    "Bounty is not pending approval (status: {:?})",
+                    bounty.status
+                )));
+            }
+
+            // Cancel the bounty (no escrow was created yet)
+            update_bounty_status(&pool, bounty_id, BountyStatus::Cancelled).await?;
+
+            // Mark approval request as rejected
+            mark_approval_rejected(&pool, request_id, request.reason.as_deref()).await?;
+
+            // Send notification to requester
+            send_rejection_notification(&approval_request.requester_did, &bounty.title, request.reason.as_deref()).await;
+
+            Ok(Json(RejectResponse {
+                success: true,
+                approval_request_id: request_id,
+                message: "Bounty rejected and cancelled".to_string(),
+                bounty_id: Some(bounty_id),
+            }))
+        }
+        ApprovalActionType::Delegate => {
+            // For delegate actions, just mark as rejected
+            mark_approval_rejected(&pool, request_id, request.reason.as_deref()).await?;
+
+            // Send notification to requester
+            send_rejection_notification(&approval_request.requester_did, "Delegation request", request.reason.as_deref()).await;
+
+            Ok(Json(RejectResponse {
+                success: true,
+                approval_request_id: request_id,
+                message: "Delegation rejected".to_string(),
+                bounty_id: None,
+            }))
+        }
+    }
+}
+
 /// Loads an approval request by ID.
 async fn load_approval_request(pool: &PgPool, id: Uuid) -> Result<ApprovalRequest, AppError> {
     sqlx::query_as::<_, ApprovalRequest>(
@@ -303,6 +414,40 @@ async fn mark_approval_expired(pool: &PgPool, id: Uuid) -> Result<(), AppError> 
     .map_err(|e| AppError::Internal(format!("Failed to update approval request: {}", e)))?;
 
     Ok(())
+}
+
+/// Marks an approval request as rejected.
+async fn mark_approval_rejected(
+    pool: &PgPool,
+    id: Uuid,
+    reason: Option<&str>,
+) -> Result<(), AppError> {
+    sqlx::query(
+        r#"
+        UPDATE approval_requests
+        SET status = 'rejected', resolved_at = NOW(), resolution_reason = $2
+        WHERE id = $1
+        "#,
+    )
+    .bind(id)
+    .bind(reason)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to update approval request: {}", e)))?;
+
+    Ok(())
+}
+
+/// Sends a notification to the requester about rejection.
+/// In production, this would send email, webhook, or Slack message.
+async fn send_rejection_notification(requester_did: &str, subject: &str, reason: Option<&str>) {
+    // Placeholder: In production, implement email/webhook/Slack notification
+    tracing::info!(
+        requester_did = %requester_did,
+        subject = %subject,
+        reason = ?reason,
+        "Rejection notification would be sent to requester"
+    );
 }
 
 /// Updates a bounty's status.
@@ -554,5 +699,62 @@ mod tests {
         assert_eq!(ApprovalRequestStatus::Approved.as_str(), "approved");
         assert_eq!(ApprovalRequestStatus::Rejected.as_str(), "rejected");
         assert_eq!(ApprovalRequestStatus::Expired.as_str(), "expired");
+    }
+
+    // ===== Reject Request Tests =====
+
+    #[test]
+    fn test_reject_request_deserialization() {
+        let json = r#"{
+            "operatorDid": "did:key:z6MkOperator",
+            "reason": "Does not meet requirements"
+        }"#;
+
+        let request: RejectRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(request.operator_did, "did:key:z6MkOperator");
+        assert_eq!(request.reason, Some("Does not meet requirements".to_string()));
+    }
+
+    #[test]
+    fn test_reject_request_without_reason() {
+        let json = r#"{
+            "operatorDid": "did:key:z6MkOperator"
+        }"#;
+
+        let request: RejectRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(request.operator_did, "did:key:z6MkOperator");
+        assert_eq!(request.reason, None);
+    }
+
+    #[test]
+    fn test_reject_response_serialization() {
+        let response = RejectResponse {
+            success: true,
+            approval_request_id: Uuid::new_v4(),
+            message: "Bounty rejected and cancelled".to_string(),
+            bounty_id: Some(Uuid::new_v4()),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"success\":true"));
+        assert!(json.contains("\"approvalRequestId\":"));
+        assert!(json.contains("\"message\":\"Bounty rejected and cancelled\""));
+        assert!(json.contains("\"bountyId\":"));
+    }
+
+    #[test]
+    fn test_reject_response_delegate() {
+        let response = RejectResponse {
+            success: true,
+            approval_request_id: Uuid::new_v4(),
+            message: "Delegation rejected".to_string(),
+            bounty_id: None,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"success\":true"));
+        assert!(json.contains("\"message\":\"Delegation rejected\""));
+        // Optional field should not be present
+        assert!(!json.contains("\"bountyId\":"));
     }
 }

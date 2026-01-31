@@ -1180,3 +1180,18 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - EscrowStatus::Held must be used directly in SQL bind (NewEscrowHold doesn't have status field)
   - 10 new approvals tests; 438 total tests pass
 ---
+
+## 2026-01-31 - US-018D
+- What was implemented: Rejection command for operators to deny approval requests
+- Files changed:
+  - `crates/openclaw-cli/src/main.rs` - Added Reject command with request_id, --server, --reason, --yes flags; added RejectRequest, RejectApiResponse structs; implemented handle_reject function
+  - `crates/openclaw-server/src/routes/approvals.rs` - Added POST /{id}/reject endpoint, RejectRequest/RejectResponse types, reject_request handler, mark_approval_rejected and send_rejection_notification functions; 4 new unit tests
+- **Learnings for future iterations:**
+  - CLI rejection flow mirrors approval: fetch details → verify operator DID → display → prompt for reason → confirm → POST reject
+  - The --reason flag allows providing rejection reason without interactive prompt
+  - Server rejection endpoint: load request → verify operator → check pending/expiry → cancel bounty → mark rejected → notify requester
+  - send_rejection_notification is a placeholder using tracing::info (production would send email/webhook/Slack)
+  - Reuse mark_approval_expired pattern for mark_approval_rejected with resolution_reason parameter
+  - Bounty status changes to Cancelled (not Rejected) since Cancelled is an existing status enum value
+  - 4 new rejection tests; 442 total tests pass
+---

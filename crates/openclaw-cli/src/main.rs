@@ -67,6 +67,23 @@ enum Commands {
         #[arg(short = 'y', long)]
         yes: bool,
     },
+    /// Reject an approval request
+    Reject {
+        /// The approval request ID (UUID)
+        request_id: String,
+
+        /// Server URL for the API
+        #[arg(long, default_value = "http://localhost:3000")]
+        server: String,
+
+        /// Reason for rejection
+        #[arg(short, long)]
+        reason: Option<String>,
+
+        /// Skip confirmation prompt
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -123,6 +140,7 @@ fn main() {
         Commands::Manifest { action } => handle_manifest(action),
         Commands::Policy { action } => handle_policy(action),
         Commands::Approve { request_id, server, yes } => handle_approve(&request_id, &server, yes),
+        Commands::Reject { request_id, server, reason, yes } => handle_reject(&request_id, &server, reason.as_deref(), yes),
     };
 
     if let Err(e) = result {
@@ -617,6 +635,24 @@ struct ApproveApiResponse {
     ledger_id: Option<String>,
 }
 
+/// Request body for POST /api/v1/approvals/{id}/reject
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RejectRequest {
+    operator_did: String,
+    reason: Option<String>,
+}
+
+/// Response from POST /api/v1/approvals/{id}/reject
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RejectApiResponse {
+    success: bool,
+    approval_request_id: String,
+    message: String,
+    bounty_id: Option<String>,
+}
+
 fn handle_approve(request_id: &str, server_url: &str, skip_confirmation: bool) -> anyhow::Result<()> {
     use colored::Colorize;
 
@@ -766,6 +802,182 @@ fn handle_approve(request_id: &str, server_url: &str, skip_confirmation: bool) -
     }
     if let Some(escrow_id) = &approve_response.escrow_id {
         println!("  Escrow ID:  {}", escrow_id);
+    }
+
+    Ok(())
+}
+
+fn handle_reject(request_id: &str, server_url: &str, reason: Option<&str>, skip_confirmation: bool) -> anyhow::Result<()> {
+    use colored::Colorize;
+
+    // Parse request ID as UUID to validate format
+    let _uuid = uuid::Uuid::parse_str(request_id)
+        .map_err(|_| anyhow::anyhow!("Invalid request ID format. Expected UUID."))?;
+
+    // Load local identity to verify we're the operator
+    let identity = keystore::load_identity_info()?;
+
+    println!("Fetching approval request {}...", request_id);
+    println!();
+
+    // Fetch approval request details from server
+    let get_url = format!("{}/api/v1/approvals/{}", server_url.trim_end_matches('/'), request_id);
+    let response = ureq::get(&get_url)
+        .call()
+        .map_err(|e| anyhow::anyhow!("Failed to fetch approval request: {}", e))?;
+
+    if response.status() != 200 {
+        let status = response.status();
+        let body = response.into_string().unwrap_or_default();
+        return Err(anyhow::anyhow!("Server returned error {}: {}", status, body));
+    }
+
+    let approval_request: ApprovalRequestResponse = response.into_json()
+        .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
+
+    // Verify operator DID matches local identity
+    if approval_request.operator_did != identity.did {
+        eprintln!("{}", "✗ Not authorized".red().bold());
+        eprintln!();
+        eprintln!("  This approval request is for operator:");
+        eprintln!("    {}", truncate_did(&approval_request.operator_did));
+        eprintln!();
+        eprintln!("  Your identity is:");
+        eprintln!("    {}", truncate_did(&identity.did));
+        return Err(anyhow::anyhow!("This approval request belongs to a different operator"));
+    }
+
+    // Check if request is still pending
+    if approval_request.status != "pending" {
+        return Err(anyhow::anyhow!(
+            "Approval request is not pending (status: {})",
+            approval_request.status
+        ));
+    }
+
+    // Check if request has expired
+    if approval_request.is_expired {
+        return Err(anyhow::anyhow!("Approval request has expired"));
+    }
+
+    // Display approval request details
+    println!("{}", "Approval Request Details".bold().cyan());
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!();
+    println!("  Request ID:  {}", request_id);
+    println!("  Action Type: {}", approval_request.action_type.to_uppercase());
+    println!("  Status:      {}", approval_request.status);
+    println!("  Expires At:  {}", approval_request.expires_at);
+    println!();
+    println!("  Requester:   {}", truncate_did(&approval_request.requester_did));
+    println!("  Operator:    {} {}", truncate_did(&approval_request.operator_did), "(you)".green());
+
+    if let Some(amount) = &approval_request.amount {
+        println!();
+        println!("  Amount:      {} M-credits", amount);
+    }
+
+    // Display bounty details if present
+    if let Some(bounty) = &approval_request.bounty {
+        println!();
+        println!("{}", "Bounty Details".bold().yellow());
+        println!("──────────────────────────────────────────────────");
+        println!();
+        println!("  Title:       {}", bounty.title);
+        println!("  Reward:      {} M-credits", bounty.reward_credits);
+        println!("  Closure:     {}", bounty.closure_type);
+        println!("  Status:      {}", bounty.status);
+        println!();
+        println!("  Description:");
+        for line in bounty.description.lines().take(5) {
+            println!("    {}", line);
+        }
+        if bounty.description.lines().count() > 5 {
+            println!("    ...");
+        }
+    }
+
+    println!();
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!();
+
+    // Get reason for rejection (from argument or prompt)
+    let rejection_reason = if let Some(r) = reason {
+        Some(r.to_string())
+    } else if !skip_confirmation {
+        // Prompt for reason
+        print!("Enter reason for rejection (optional, press Enter to skip): ");
+        std::io::Write::flush(&mut std::io::stdout())?;
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        let input = input.trim();
+        if input.is_empty() {
+            None
+        } else {
+            Some(input.to_string())
+        }
+    } else {
+        None
+    };
+
+    // Prompt for confirmation unless --yes flag is set
+    if !skip_confirmation {
+        print!("{} [y/N]: ", "Do you want to REJECT this request?".red().bold());
+        std::io::Write::flush(&mut std::io::stdout())?;
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        let input = input.trim().to_lowercase();
+
+        if input != "y" && input != "yes" {
+            println!();
+            println!("{}", "Rejection cancelled.".yellow());
+            return Ok(());
+        }
+    }
+
+    println!();
+    println!("Rejecting request...");
+
+    // POST to reject the request
+    let reject_url = format!("{}/api/v1/approvals/{}/reject", server_url.trim_end_matches('/'), request_id);
+    let reject_body = RejectRequest {
+        operator_did: identity.did.clone(),
+        reason: rejection_reason.clone(),
+    };
+
+    let response = ureq::post(&reject_url)
+        .set("Content-Type", "application/json")
+        .send_json(&reject_body)
+        .map_err(|e| anyhow::anyhow!("Failed to reject request: {}", e))?;
+
+    if response.status() != 200 {
+        let status = response.status();
+        let body = response.into_string().unwrap_or_default();
+        return Err(anyhow::anyhow!("Rejection failed with status {}: {}", status, body));
+    }
+
+    let reject_response: RejectApiResponse = response.into_json()
+        .map_err(|e| anyhow::anyhow!("Failed to parse rejection response: {}", e))?;
+
+    if !reject_response.success {
+        return Err(anyhow::anyhow!("Rejection failed: {}", reject_response.message));
+    }
+
+    println!();
+    println!("{} {}", "✗".red().bold(), "Request rejected".red());
+    println!();
+    println!("  {}", reject_response.message);
+
+    if let Some(r) = &rejection_reason {
+        println!();
+        println!("  Reason: {}", r);
+    }
+
+    if let Some(bounty_id) = &reject_response.bounty_id {
+        println!();
+        println!("  Bounty ID: {} (cancelled)", bounty_id);
     }
 
     Ok(())

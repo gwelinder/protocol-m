@@ -504,6 +504,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Creates escrow hold and updates bounty status to open on approval
   - Added ureq (HTTP client) and uuid dependencies to CLI crate
   - 10 new unit tests for approvals routes, 438 total tests pass
+- US-018D: Implemented rejection command for operators:
+  - Added `openclaw reject <request_id>` CLI command with --server, --reason, and --yes flags
+  - Added POST /api/v1/approvals/{id}/reject endpoint
+  - Validates operator DID, checks pending status and expiry
+  - Cancels bounty and marks approval request as rejected
+  - Sends rejection notification to requester (placeholder via tracing::info)
+  - Prompts for rejection reason interactively or accepts via --reason flag
+  - 4 new unit tests for rejection routes, 442 total tests pass
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
