@@ -26,6 +26,8 @@ pub enum BountyClosureType {
 #[sqlx(type_name = "bounty_status", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum BountyStatus {
+    /// Bounty is awaiting operator approval (for high-value bounties).
+    PendingApproval,
     /// Bounty is open and accepting submissions.
     Open,
     /// Someone has accepted the bounty and is working on it.
@@ -76,6 +78,11 @@ pub struct NewBounty {
 }
 
 impl Bounty {
+    /// Check if the bounty is pending operator approval.
+    pub fn is_pending_approval(&self) -> bool {
+        self.status == BountyStatus::PendingApproval
+    }
+
     /// Check if the bounty is open for submissions.
     pub fn is_open(&self) -> bool {
         self.status == BountyStatus::Open

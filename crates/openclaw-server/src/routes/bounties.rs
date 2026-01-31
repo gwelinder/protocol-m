@@ -16,9 +16,10 @@ use chrono::{Duration, Utc};
 
 use crate::error::AppError;
 use crate::models::{
-    calculate_dispute_stake, Bounty, BountyClosureType, BountyStatus, BountySubmission,
-    Dispute, DisputeStatus, EscrowStatus, NewBounty, NewBountySubmission, NewDispute,
-    NewEscrowHold, NewMCreditsLedger, SubmissionStatus, DISPUTE_WINDOW_DAYS,
+    calculate_dispute_stake, ApprovalActionType, ApprovalRequestStatus, Bounty, BountyClosureType,
+    BountyStatus, BountySubmission, Dispute, DisputeStatus, EscrowStatus, NewBounty,
+    NewBountySubmission, NewDispute, NewEscrowHold, NewMCreditsLedger, SubmissionStatus,
+    UserPolicy, DISPUTE_WINDOW_DAYS,
 };
 use openclaw_crypto::{did_to_verifying_key, SignatureEnvelopeV1};
 
@@ -68,10 +69,18 @@ pub struct CreateBountyResponse {
     pub reward_credits: String,
     /// Current bounty status.
     pub status: BountyStatus,
-    /// The escrow hold ID.
-    pub escrow_id: Uuid,
-    /// The ledger entry ID for the hold.
-    pub ledger_id: Uuid,
+    /// The escrow hold ID (None if pending approval).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub escrow_id: Option<Uuid>,
+    /// The ledger entry ID for the hold (None if pending approval).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ledger_id: Option<Uuid>,
+    /// The approval request ID (set if high-value bounty requires approval).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_request_id: Option<Uuid>,
+    /// Message explaining the bounty creation status.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
 
 /// Request body for submitting work to a bounty.
@@ -450,6 +459,97 @@ fn check_sufficient_balance(
     Ok(())
 }
 
+/// Loads the user's policy from the database.
+/// If no policy exists for the DID, returns None.
+async fn load_user_policy(pool: &PgPool, did: &str) -> Result<Option<UserPolicy>, AppError> {
+    let policy: Option<UserPolicy> = sqlx::query_as(
+        r#"
+        SELECT did, version, max_spend_per_day, max_spend_per_bounty, enabled,
+               approval_tiers, allowed_delegates, emergency_contact, created_at, updated_at
+        FROM user_policies
+        WHERE did = $1
+        "#,
+    )
+    .bind(did)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query user policy: {}", e)))?;
+
+    Ok(policy)
+}
+
+/// Creates an approval request for a high-value bounty.
+/// Returns the approval request ID.
+async fn create_approval_request(
+    pool: &PgPool,
+    bounty_id: Uuid,
+    requester_did: &str,
+    operator_did: &str,
+    reward_credits: &BigDecimal,
+    bounty_title: &str,
+) -> Result<Uuid, AppError> {
+    let request_id = Uuid::new_v4();
+    let expires_at = Utc::now() + Duration::hours(24);
+
+    let metadata = json!({
+        "bounty_title": bounty_title,
+        "description": format!("Approval required for bounty: {}", bounty_title)
+    });
+
+    sqlx::query(
+        r#"
+        INSERT INTO approval_requests
+            (id, operator_did, bounty_id, action_type, amount, status, metadata, requester_did, expires_at, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+        "#,
+    )
+    .bind(request_id)
+    .bind(operator_did)
+    .bind(bounty_id)
+    .bind(ApprovalActionType::Spend)
+    .bind(reward_credits)
+    .bind(ApprovalRequestStatus::Pending)
+    .bind(&metadata)
+    .bind(requester_did)
+    .bind(expires_at)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to create approval request: {}", e)))?;
+
+    Ok(request_id)
+}
+
+/// Sends a notification to the operator about a pending approval request.
+/// This is a placeholder implementation - in production, would send email/webhook/Slack.
+async fn send_approval_notification(
+    _pool: &PgPool,
+    operator_did: &str,
+    request_id: Uuid,
+    bounty_title: &str,
+    reward_credits: &BigDecimal,
+    notification_channels: &[crate::models::NotificationChannel],
+) -> Result<(), AppError> {
+    // Placeholder: Log the notification request
+    // In production, this would:
+    // 1. Look up operator's notification preferences
+    // 2. Send email if configured
+    // 3. Send webhook if configured
+    // 4. Send Slack message if configured
+
+    tracing::info!(
+        operator_did = %operator_did,
+        request_id = %request_id,
+        bounty_title = %bounty_title,
+        reward_credits = %reward_credits,
+        channels = ?notification_channels,
+        "Approval notification would be sent"
+    );
+
+    // TODO: Implement actual notification sending
+    // For now, we just log and succeed
+    Ok(())
+}
+
 /// Creates an escrow hold by:
 /// 1. Inserting a hold event into the ledger
 /// 2. Creating an escrow_holds record
@@ -558,15 +658,95 @@ async fn create_bounty(
 
     // Step 7: Generate bounty ID
     let bounty_id = Uuid::new_v4();
+    let title_trimmed = request.title.trim().to_string();
 
-    // Step 8: Create escrow hold (deduct from balance, lock in escrow)
+    // Step 8: Load user's policy and check if approval is required
+    let policy = load_user_policy(&pool, &poster_did).await?;
+    let approval_tier = policy.as_ref().and_then(|p| p.requires_approval(&reward_credits));
+
+    if let Some(tier) = approval_tier {
+        // Approval is required - create bounty with pending_approval status
+        // Do NOT create escrow hold yet
+        let new_bounty = NewBounty {
+            poster_did: poster_did.clone(),
+            title: title_trimmed.clone(),
+            description: request.description.trim().to_string(),
+            reward_credits: reward_credits.clone(),
+            closure_type: request.closure_type,
+            metadata: normalized_metadata,
+            deadline,
+        };
+
+        let bounty: Bounty = sqlx::query_as(
+            r#"
+            INSERT INTO bounties (id, poster_did, title, description, reward_credits, closure_type, status, metadata, created_at, updated_at, deadline)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)
+            RETURNING id, poster_did, title, description, reward_credits, closure_type, status, metadata, created_at, updated_at, deadline
+            "#,
+        )
+        .bind(bounty_id)
+        .bind(&new_bounty.poster_did)
+        .bind(&new_bounty.title)
+        .bind(&new_bounty.description)
+        .bind(&new_bounty.reward_credits)
+        .bind(new_bounty.closure_type)
+        .bind(BountyStatus::PendingApproval)
+        .bind(&new_bounty.metadata)
+        .bind(new_bounty.deadline)
+        .fetch_one(&pool)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to create bounty: {}", e)))?;
+
+        // Create approval request
+        let operator_did = policy.as_ref().map(|p| p.operator_did()).unwrap_or(&poster_did);
+        let approval_request_id = create_approval_request(
+            &pool,
+            bounty_id,
+            &poster_did,
+            operator_did,
+            &reward_credits,
+            &title_trimmed,
+        )
+        .await?;
+
+        // Send notification to operator
+        send_approval_notification(
+            &pool,
+            operator_did,
+            approval_request_id,
+            &title_trimmed,
+            &reward_credits,
+            &tier.notification_channels,
+        )
+        .await?;
+
+        // Return response with approval_request_id (no escrow yet)
+        return Ok(Json(CreateBountyResponse {
+            success: true,
+            bounty_id: bounty.id,
+            title: bounty.title,
+            reward_credits: bounty.reward_credits.to_string(),
+            status: bounty.status,
+            escrow_id: None,
+            ledger_id: None,
+            approval_request_id: Some(approval_request_id),
+            message: Some(format!(
+                "Bounty requires operator approval for amounts exceeding {} M-credits. Approval request created.",
+                tier.threshold
+            )),
+        }));
+    }
+
+    // No approval required - proceed with normal flow
+
+    // Step 9: Create escrow hold (deduct from balance, lock in escrow)
     let (escrow_id, ledger_id) =
         create_escrow_hold(&pool, bounty_id, &poster_did, &reward_credits).await?;
 
-    // Step 9: Create bounty record
+    // Step 10: Create bounty record
     let new_bounty = NewBounty {
         poster_did: poster_did.clone(),
-        title: request.title.trim().to_string(),
+        title: title_trimmed,
         description: request.description.trim().to_string(),
         reward_credits: reward_credits.clone(),
         closure_type: request.closure_type,
@@ -594,15 +774,17 @@ async fn create_bounty(
     .await
     .map_err(|e| AppError::Internal(format!("Failed to create bounty: {}", e)))?;
 
-    // Step 10: Return response
+    // Step 11: Return response
     Ok(Json(CreateBountyResponse {
         success: true,
         bounty_id: bounty.id,
         title: bounty.title,
         reward_credits: bounty.reward_credits.to_string(),
         status: bounty.status,
-        escrow_id,
-        ledger_id,
+        escrow_id: Some(escrow_id),
+        ledger_id: Some(ledger_id),
+        approval_request_id: None,
+        message: None,
     }))
 }
 
@@ -2107,8 +2289,10 @@ mod tests {
             title: "Test bounty".to_string(),
             reward_credits: "100.00000000".to_string(),
             status: BountyStatus::Open,
-            escrow_id: Uuid::new_v4(),
-            ledger_id: Uuid::new_v4(),
+            escrow_id: Some(Uuid::new_v4()),
+            ledger_id: Some(Uuid::new_v4()),
+            approval_request_id: None,
+            message: None,
         };
 
         let json = serde_json::to_string(&response).unwrap();
@@ -2119,6 +2303,9 @@ mod tests {
         assert!(json.contains("\"status\":\"open\""));
         assert!(json.contains("\"escrowId\":"));
         assert!(json.contains("\"ledgerId\":"));
+        // approval_request_id and message should not be present when None
+        assert!(!json.contains("\"approvalRequestId\":"));
+        assert!(!json.contains("\"message\":"));
     }
 
     // ===== NewMCreditsLedger Hold Test =====
@@ -3371,5 +3558,231 @@ mod tests {
             ..pending_submission
         };
         assert!(approved_submission.is_approved());
+    }
+
+    // ===== Approval Flow Tests =====
+
+    #[test]
+    fn test_user_policy_requires_approval_below_threshold() {
+        use crate::models::user_policy::UserPolicy;
+
+        let policy = UserPolicy {
+            did: "did:key:z6MkTest".to_string(),
+            version: "1.0".to_string(),
+            max_spend_per_day: BigDecimal::from_str("1000.00000000").unwrap(),
+            max_spend_per_bounty: BigDecimal::from_str("500.00000000").unwrap(),
+            enabled: true,
+            approval_tiers: serde_json::json!([
+                {"threshold": 100, "require_approval": true, "approvers": [], "timeout_hours": 24, "notification_channels": []}
+            ]),
+            allowed_delegates: serde_json::json!([]),
+            emergency_contact: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        // Amount below threshold - no approval needed
+        let amount = BigDecimal::from_str("50.00000000").unwrap();
+        assert!(policy.requires_approval(&amount).is_none());
+    }
+
+    #[test]
+    fn test_user_policy_requires_approval_above_threshold() {
+        use crate::models::user_policy::UserPolicy;
+
+        let policy = UserPolicy {
+            did: "did:key:z6MkTest".to_string(),
+            version: "1.0".to_string(),
+            max_spend_per_day: BigDecimal::from_str("1000.00000000").unwrap(),
+            max_spend_per_bounty: BigDecimal::from_str("500.00000000").unwrap(),
+            enabled: true,
+            approval_tiers: serde_json::json!([
+                {"threshold": 100, "require_approval": true, "approvers": [], "timeout_hours": 24, "notification_channels": []}
+            ]),
+            allowed_delegates: serde_json::json!([]),
+            emergency_contact: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        // Amount above threshold - approval required
+        let amount = BigDecimal::from_str("150.00000000").unwrap();
+        let tier = policy.requires_approval(&amount);
+        assert!(tier.is_some());
+        assert_eq!(tier.unwrap().threshold, 100.0);
+    }
+
+    #[test]
+    fn test_user_policy_requires_approval_disabled() {
+        use crate::models::user_policy::UserPolicy;
+
+        let policy = UserPolicy {
+            did: "did:key:z6MkTest".to_string(),
+            version: "1.0".to_string(),
+            max_spend_per_day: BigDecimal::from_str("1000.00000000").unwrap(),
+            max_spend_per_bounty: BigDecimal::from_str("500.00000000").unwrap(),
+            enabled: false, // Policy disabled
+            approval_tiers: serde_json::json!([
+                {"threshold": 100, "require_approval": true, "approvers": [], "timeout_hours": 24, "notification_channels": []}
+            ]),
+            allowed_delegates: serde_json::json!([]),
+            emergency_contact: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        // Even with amount above threshold, disabled policy means no approval needed
+        let amount = BigDecimal::from_str("500.00000000").unwrap();
+        assert!(policy.requires_approval(&amount).is_none());
+    }
+
+    #[test]
+    fn test_user_policy_multiple_tiers_selects_highest() {
+        use crate::models::user_policy::UserPolicy;
+
+        let policy = UserPolicy {
+            did: "did:key:z6MkTest".to_string(),
+            version: "1.0".to_string(),
+            max_spend_per_day: BigDecimal::from_str("10000.00000000").unwrap(),
+            max_spend_per_bounty: BigDecimal::from_str("5000.00000000").unwrap(),
+            enabled: true,
+            approval_tiers: serde_json::json!([
+                {"threshold": 100, "require_approval": true, "approvers": [], "timeout_hours": 24, "notification_channels": []},
+                {"threshold": 500, "require_approval": true, "approvers": ["did:key:z6MkApprover"], "timeout_hours": 48, "notification_channels": []},
+                {"threshold": 1000, "require_approval": true, "approvers": [], "timeout_hours": 72, "notification_channels": []}
+            ]),
+            allowed_delegates: serde_json::json!([]),
+            emergency_contact: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        // Amount above first tier only
+        let amount1 = BigDecimal::from_str("200.00000000").unwrap();
+        let tier1 = policy.requires_approval(&amount1);
+        assert!(tier1.is_some());
+        assert_eq!(tier1.unwrap().threshold, 100.0);
+
+        // Amount above second tier
+        let amount2 = BigDecimal::from_str("750.00000000").unwrap();
+        let tier2 = policy.requires_approval(&amount2);
+        assert!(tier2.is_some());
+        assert_eq!(tier2.unwrap().threshold, 500.0);
+
+        // Amount above all tiers - should select highest (1000)
+        let amount3 = BigDecimal::from_str("1500.00000000").unwrap();
+        let tier3 = policy.requires_approval(&amount3);
+        assert!(tier3.is_some());
+        assert_eq!(tier3.unwrap().threshold, 1000.0);
+    }
+
+    #[test]
+    fn test_user_policy_tier_with_require_approval_false() {
+        use crate::models::user_policy::UserPolicy;
+
+        let policy = UserPolicy {
+            did: "did:key:z6MkTest".to_string(),
+            version: "1.0".to_string(),
+            max_spend_per_day: BigDecimal::from_str("1000.00000000").unwrap(),
+            max_spend_per_bounty: BigDecimal::from_str("500.00000000").unwrap(),
+            enabled: true,
+            approval_tiers: serde_json::json!([
+                {"threshold": 100, "require_approval": false, "approvers": [], "timeout_hours": 24, "notification_channels": []}
+            ]),
+            allowed_delegates: serde_json::json!([]),
+            emergency_contact: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        // Amount above threshold but require_approval is false
+        let amount = BigDecimal::from_str("200.00000000").unwrap();
+        assert!(policy.requires_approval(&amount).is_none());
+    }
+
+    #[test]
+    fn test_create_bounty_response_with_approval() {
+        let response = CreateBountyResponse {
+            success: true,
+            bounty_id: Uuid::new_v4(),
+            title: "Test Bounty".to_string(),
+            reward_credits: "500.00000000".to_string(),
+            status: BountyStatus::PendingApproval,
+            escrow_id: None,
+            ledger_id: None,
+            approval_request_id: Some(Uuid::new_v4()),
+            message: Some("Approval required".to_string()),
+        };
+
+        assert!(response.approval_request_id.is_some());
+        assert!(response.escrow_id.is_none());
+        assert!(response.ledger_id.is_none());
+        assert_eq!(response.status, BountyStatus::PendingApproval);
+    }
+
+    #[test]
+    fn test_create_bounty_response_without_approval() {
+        let response = CreateBountyResponse {
+            success: true,
+            bounty_id: Uuid::new_v4(),
+            title: "Test Bounty".to_string(),
+            reward_credits: "50.00000000".to_string(),
+            status: BountyStatus::Open,
+            escrow_id: Some(Uuid::new_v4()),
+            ledger_id: Some(Uuid::new_v4()),
+            approval_request_id: None,
+            message: None,
+        };
+
+        assert!(response.approval_request_id.is_none());
+        assert!(response.escrow_id.is_some());
+        assert!(response.ledger_id.is_some());
+        assert_eq!(response.status, BountyStatus::Open);
+    }
+
+    #[test]
+    fn test_bounty_status_pending_approval() {
+        let bounty = Bounty {
+            id: Uuid::new_v4(),
+            poster_did: "did:key:z6MkTest".to_string(),
+            title: "Test Bounty".to_string(),
+            description: "A test bounty".to_string(),
+            reward_credits: BigDecimal::from_str("500.00000000").unwrap(),
+            closure_type: BountyClosureType::Requester,
+            status: BountyStatus::PendingApproval,
+            metadata: serde_json::json!({}),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            deadline: None,
+        };
+
+        assert!(bounty.is_pending_approval());
+        assert!(!bounty.is_open());
+        assert!(!bounty.is_in_progress());
+        assert!(!bounty.is_completed());
+        assert!(!bounty.is_cancelled());
+        assert!(!bounty.is_active());
+    }
+
+    #[test]
+    fn test_user_policy_no_tiers() {
+        use crate::models::user_policy::UserPolicy;
+
+        let policy = UserPolicy {
+            did: "did:key:z6MkTest".to_string(),
+            version: "1.0".to_string(),
+            max_spend_per_day: BigDecimal::from_str("1000.00000000").unwrap(),
+            max_spend_per_bounty: BigDecimal::from_str("500.00000000").unwrap(),
+            enabled: true,
+            approval_tiers: serde_json::json!([]), // No tiers
+            allowed_delegates: serde_json::json!([]),
+            emergency_contact: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        // No tiers means no approval needed
+        let amount = BigDecimal::from_str("500.00000000").unwrap();
+        assert!(policy.requires_approval(&amount).is_none());
     }
 }

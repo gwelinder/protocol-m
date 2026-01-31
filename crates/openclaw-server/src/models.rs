@@ -17,6 +17,7 @@ pub mod post;
 pub mod purchase_invoice;
 pub mod redemption_receipt;
 pub mod reputation_event;
+pub mod user_policy;
 
 pub use approval_request::{
     ApprovalActionType, ApprovalRequest, ApprovalRequestStatus, NewApprovalRequest,
@@ -43,4 +44,9 @@ pub use m_reputation::{MReputation, NewMReputation};
 pub use reputation_event::{
     closure_type_to_weight, NewReputationEvent, ReputationEvent, ReputationEventType,
     WEIGHT_QUORUM, WEIGHT_REQUESTER, WEIGHT_TESTS,
+};
+pub use user_policy::{
+    ApprovalTier, NewUserPolicy, NotificationChannel, NotificationChannelType, UserPolicy,
+    DEFAULT_APPROVAL_THRESHOLD, DEFAULT_MAX_SPEND_PER_BOUNTY, DEFAULT_MAX_SPEND_PER_DAY,
+    DEFAULT_TIMEOUT_HOURS,
 };
