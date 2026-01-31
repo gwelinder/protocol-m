@@ -3589,6 +3589,127 @@
       "priority": 180,
       "passes": false,
       "notes": "Reserve status requires collateral utility"
+    },
+    {
+      "id": "US-051A",
+      "title": "Implement Moltbook engagement heartbeat loop",
+      "description": "As Protocol M, I need an autonomous engagement loop so I maintain community presence.",
+      "acceptanceCriteria": [
+        "Fetch hot/new/search feeds every 4 hours",
+        "Score posts for engagement opportunity",
+        "Draft responses using templates or Oracle",
+        "Post comments respecting rate limits",
+        "Track engagement metrics"
+      ],
+      "priority": 181,
+      "passes": false,
+      "notes": "Ralph-engage loop"
+    },
+    {
+      "id": "US-051B",
+      "title": "Implement multi-AI response enhancement",
+      "description": "As Protocol M, I need multiple AI layers for authoritative responses.",
+      "acceptanceCriteria": [
+        "Use Claude for quick responses",
+        "Use Oracle GPT-5.2 Pro for deep analysis",
+        "Use Gemini for search-augmented context",
+        "Track which AI performs best per topic",
+        "Blend insights when appropriate"
+      ],
+      "priority": 182,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-051C",
+      "title": "Implement engagement analytics dashboard",
+      "description": "As Protocol M, I need analytics so I improve engagement over time.",
+      "acceptanceCriteria": [
+        "Track comments/day, upvotes/comment, followers/week",
+        "Identify top-performing topics",
+        "Calculate engagement rate trends",
+        "Generate weekly summary report",
+        "Output to engagement_report.md"
+      ],
+      "priority": 183,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-051D",
+      "title": "Implement community feedback → PRD pipeline",
+      "description": "As Protocol M, I need to capture feedback and create user stories.",
+      "acceptanceCriteria": [
+        "Detect feedback in replies to our comments",
+        "Categorize: feature request, bug, confusion, collaboration",
+        "Log to community_feedback.jsonl",
+        "Generate draft user stories",
+        "Weekly sync to main prd.json"
+      ],
+      "priority": 184,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-051E",
+      "title": "Implement Protocol M explainer series",
+      "description": "As Protocol M, I need an explainer series to educate the community.",
+      "acceptanceCriteria": [
+        "Part 1: Why build this",
+        "Part 2: Identity as anchor",
+        "Part 3: Credits ≠ Reputation",
+        "Part 4: Delegation marketplace",
+        "Part 5: Safety & governance",
+        "Part 6: Join the build",
+        "Each post < 500 chars body"
+      ],
+      "priority": 185,
+      "passes": false,
+      "notes": "Already drafted in EXPLAINER_SERIES.md"
+    },
+    {
+      "id": "US-051F",
+      "title": "Implement collaboration detection and outreach",
+      "description": "As Protocol M, I need to identify and pursue collaborations.",
+      "acceptanceCriteria": [
+        "Detect posts about compute, identity, payments, agent tooling",
+        "Score collaboration fit",
+        "Draft personalized outreach",
+        "Track outreach responses",
+        "Escalate promising leads"
+      ],
+      "priority": 186,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-051G",
+      "title": "Implement Protocol M signature footer",
+      "description": "As Protocol M, I need a signature footer for brand recognition.",
+      "acceptanceCriteria": [
+        "Add footer to substantive comments (> 100 words)",
+        "Footer: Building Protocol M — agent identity, provenance, economics. m/protocol-m",
+        "Skip footer for casual comments",
+        "Track footer usage and effectiveness"
+      ],
+      "priority": 187,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-051H",
+      "title": "Implement thread follow-up monitoring",
+      "description": "As Protocol M, I need to follow up on threads I engaged with.",
+      "acceptanceCriteria": [
+        "Track threads with our comments",
+        "Check for new replies every 2 hours",
+        "Queue follow-up responses",
+        "Prioritize direct questions",
+        "Detect stale threads (> 48h no activity)"
+      ],
+      "priority": 188,
+      "passes": false,
+      "notes": ""
     }
   ]
 }
