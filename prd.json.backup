@@ -1,0 +1,1735 @@
+{
+  "project": "Protocol M",
+  "branchName": "ralph/protocol-m-full-implementation",
+  "description": "Protocol M - Complete agent identity, attribution, and economics platform with cryptographic signing, portable reputation, and reserve-backed token economy",
+  "userStories": [
+    {
+      "id": "US-001A",
+      "title": "Create Rust workspace structure for OpenClaw",
+      "description": "As a developer, I need the basic workspace structure so I can build the multi-crate project.",
+      "acceptanceCriteria": [
+        "Create root Cargo.toml with workspace definition",
+        "Create crates/openclaw-crypto/ directory",
+        "Create crates/openclaw-cli/ directory",
+        "Create fixtures/ directory",
+        "Add workspace members: openclaw-crypto, openclaw-cli",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001B",
+      "title": "Add core dependencies to openclaw-crypto",
+      "description": "As a developer, I need crypto dependencies configured so I can implement signing.",
+      "acceptanceCriteria": [
+        "Add ed25519-dalek = \"2\" to Cargo.toml",
+        "Add serde = { version = \"1\", features = [\"derive\"] }",
+        "Add serde_json = \"1\"",
+        "Add serde_jcs = \"0.1\" for RFC 8785 canonicalization",
+        "Add sha2 = \"0.10\" for hashing",
+        "Add base64 = \"0.22\"",
+        "Add bs58 = \"0.5\" for Base58BTC encoding",
+        "Add anyhow = \"1\" for error handling",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001C",
+      "title": "Define signature envelope types",
+      "description": "As a developer, I need data structures for signature envelopes so I can serialize them.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-crypto/src/types.rs",
+        "Define HashRef struct with algo and value fields",
+        "Define ArtifactInfo struct with name and size fields",
+        "Define SignatureEnvelopeV1 struct matching RFC spec",
+        "All structs derive Serialize, Deserialize, Debug, Clone",
+        "Use #[serde(rename = \"type\")] for type field",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001D",
+      "title": "Implement SHA-256 hashing utility",
+      "description": "As a developer, I need a hash function so I can compute artifact hashes.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-crypto/src/hash.rs",
+        "Implement sha256_hex(bytes: &[u8]) -> String",
+        "Use sha2::Sha256 for hashing",
+        "Return lowercase hex-encoded hash",
+        "Add unit test verifying known hash",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001E",
+      "title": "Implement JCS canonicalization",
+      "description": "As a developer, I need RFC 8785 canonicalization so signatures are deterministic.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-crypto/src/jcs.rs",
+        "Implement jcs_canonical_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>>",
+        "Use serde_jcs::to_string for canonicalization",
+        "Return UTF-8 bytes of canonical JSON",
+        "Add test verifying field order independence",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001F",
+      "title": "Implement DID key derivation",
+      "description": "As a developer, I need DID generation so identities have standard format.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-crypto/src/did.rs",
+        "Implement pubkey_to_did(public_key: &VerifyingKey) -> String",
+        "Prefix pubkey bytes with multicodec 0xed01",
+        "Encode with Base58BTC (bs58 crate)",
+        "Prepend \"did:key:z\" to encoded string",
+        "Add test verifying DID format",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001G",
+      "title": "Implement keypair generation",
+      "description": "As a developer, I need keypair generation so users can create identities.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-crypto/src/keys.rs",
+        "Implement generate_keypair() -> (SigningKey, VerifyingKey)",
+        "Use ed25519_dalek with OsRng",
+        "Return both signing and verifying keys",
+        "Add test verifying keypair signs and verifies",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001H",
+      "title": "Add age encryption dependency to CLI crate",
+      "description": "As a developer, I need age encryption so private keys are protected at rest.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-cli/Cargo.toml",
+        "Add age = \"0.10\" dependency",
+        "Add rand = \"0.8\" dependency",
+        "Add clap = { version = \"4\", features = [\"derive\"] }",
+        "Add openclaw-crypto = { path = \"../openclaw-crypto\" }",
+        "Add anyhow = \"1\"",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001I",
+      "title": "Implement private key encryption",
+      "description": "As a developer, I need key encryption so private keys are never stored plaintext.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-cli/src/keystore.rs",
+        "Implement encrypt_key(key_bytes: &[u8], passphrase: &str) -> Result<Vec<u8>>",
+        "Use age::Encryptor with Passphrase recipient",
+        "Return encrypted bytes suitable for file storage",
+        "Add test verifying roundtrip encryption/decryption",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001J",
+      "title": "Implement private key decryption",
+      "description": "As a developer, I need key decryption so users can load identities.",
+      "acceptanceCriteria": [
+        "Implement decrypt_key(encrypted: &[u8], passphrase: &str) -> Result<Vec<u8>>",
+        "Use age::Decryptor with passphrase",
+        "Handle incorrect passphrase gracefully",
+        "Return decrypted key bytes",
+        "Add test verifying decryption with wrong passphrase fails",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001K",
+      "title": "Implement file permission checks",
+      "description": "As a developer, I need permission validation so insecure setups are rejected.",
+      "acceptanceCriteria": [
+        "Implement check_permissions(path: &Path) -> Result<()>",
+        "Verify directory is 0700 on Unix systems",
+        "Verify keyfile is 0600 on Unix systems",
+        "Return error if permissions too permissive",
+        "Skip check on Windows (or use equivalent ACLs)",
+        "Add test for permission validation",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001L",
+      "title": "Implement identity initialization logic",
+      "description": "As a developer, I need init command logic so users can create identities.",
+      "acceptanceCriteria": [
+        "Implement init_identity(force: bool) -> Result<()>",
+        "Check if identity already exists (error unless force=true)",
+        "Create ~/.openclaw/identity/ directory with 0700 perms",
+        "Generate keypair using openclaw-crypto",
+        "Derive DID from public key",
+        "Prompt for passphrase (twice for confirmation)",
+        "Encrypt private key with age",
+        "Write root.key.enc (0600), root.pub (0644), identity.json",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001M",
+      "title": "Add CLI scaffolding with clap",
+      "description": "As a developer, I need CLI structure so commands are routed correctly.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-cli/src/main.rs",
+        "Define Cli struct with clap Parser derive",
+        "Define Commands enum with Identity, Sign, Verify, Manifest subcommands",
+        "Add --version and --help support",
+        "Route commands to placeholder handlers",
+        "Binary compiles and shows help",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001N",
+      "title": "Wire identity init command to CLI",
+      "description": "As a developer, I need the init command wired so users can run it.",
+      "acceptanceCriteria": [
+        "Add IdentityCmd struct with --force flag",
+        "Wire Identity(cmd) to keystore::init_identity",
+        "Print success message with DID after init",
+        "Handle errors gracefully with user-friendly messages",
+        "Test: run `openclaw identity init` manually",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001O",
+      "title": "Create golden test vector fixture",
+      "description": "As a developer, I need test vectors so implementations are verifiable.",
+      "acceptanceCriteria": [
+        "Create fixtures/golden_vectors.json",
+        "Include seed (32 bytes hex)",
+        "Include expected public key",
+        "Include expected DID",
+        "Include test file content and hash",
+        "Include expected canonical envelope bytes",
+        "Include expected signature (base64)",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001P",
+      "title": "Add integration test for golden vector",
+      "description": "As a developer, I need a golden vector test so the implementation is validated.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-crypto/tests/golden.rs",
+        "Load fixtures/golden_vectors.json",
+        "Generate keypair from test seed",
+        "Verify DID derivation matches expected",
+        "Sign test content and verify signature matches",
+        "Test passes",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002A",
+      "title": "Implement envelope signing logic",
+      "description": "As a developer, I need signing logic so artifacts can be signed.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-crypto/src/sign.rs",
+        "Implement sign_artifact(key, did, filename, bytes, timestamp, metadata) -> Result<SignatureEnvelopeV1>",
+        "Compute SHA-256 hash of file bytes",
+        "Construct envelope with empty signature field",
+        "Canonicalize envelope with JCS",
+        "Sign canonical bytes with ed25519_dalek",
+        "Insert base64-encoded signature into envelope",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002B",
+      "title": "Add metadata parsing for --meta flag",
+      "description": "As a developer, I need metadata parsing so custom fields can be added.",
+      "acceptanceCriteria": [
+        "Implement parse_metadata(args: Vec<String>) -> Result<serde_json::Value>",
+        "Parse key=value pairs",
+        "Support nested keys with dot notation (e.g., author.name=Alice)",
+        "Return JSON object",
+        "Handle invalid formats with clear errors",
+        "Add test for metadata parsing",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002C",
+      "title": "Implement sign command handler",
+      "description": "As a developer, I need sign command wired so users can sign files.",
+      "acceptanceCriteria": [
+        "Add SignCmd struct with path, --meta, --dry-run flags",
+        "Load identity from ~/.openclaw/identity/",
+        "Prompt for passphrase and decrypt private key",
+        "Read file bytes",
+        "Get current timestamp (ISO 8601)",
+        "Parse metadata if provided",
+        "Call sign_artifact from openclaw-crypto",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002D",
+      "title": "Implement signature output (normal mode)",
+      "description": "As a developer, I need signature writing so envelopes are saved.",
+      "acceptanceCriteria": [
+        "If not --dry-run, write envelope to <file>.sig.json",
+        "Serialize envelope as pretty JSON",
+        "Set file permissions to 0644",
+        "Print success message with output path",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002E",
+      "title": "Implement signature output (dry-run mode)",
+      "description": "As a developer, I need dry-run output so envelopes can be previewed.",
+      "acceptanceCriteria": [
+        "If --dry-run, write envelope JSON to stdout",
+        "Do not create .sig.json file",
+        "Print to stdout only (no success messages to stderr)",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002F",
+      "title": "Add test for signing roundtrip",
+      "description": "As a developer, I need roundtrip test so signing works end-to-end.",
+      "acceptanceCriteria": [
+        "Create test that generates identity",
+        "Sign a test file",
+        "Verify the signature immediately",
+        "Test passes",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003A",
+      "title": "Implement envelope verification logic",
+      "description": "As a developer, I need verification logic so signatures can be checked.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-crypto/src/verify.rs",
+        "Implement verify_artifact(verifying_key, file_bytes, envelope) -> Result<()>",
+        "Verify envelope version/type/algo fields",
+        "Recompute file hash and compare to envelope",
+        "Remove signature from envelope copy",
+        "Canonicalize envelope with JCS",
+        "Decode base64 signature",
+        "Verify signature with ed25519_dalek",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003B",
+      "title": "Implement DID to public key extraction",
+      "description": "As a developer, I need DID parsing so verifying keys can be extracted.",
+      "acceptanceCriteria": [
+        "Implement did_to_verifying_key(did: &str) -> Result<VerifyingKey>",
+        "Strip did:key:z prefix",
+        "Decode Base58BTC",
+        "Verify multicodec is 0xed01",
+        "Extract 32-byte public key",
+        "Construct VerifyingKey",
+        "Add test for known DID",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003C",
+      "title": "Implement verify command handler",
+      "description": "As a developer, I need verify command wired so users can check signatures.",
+      "acceptanceCriteria": [
+        "Add VerifyCmd struct with file_path and sig_path",
+        "Load envelope from .sig.json file",
+        "Parse envelope as SignatureEnvelopeV1",
+        "Extract DID and convert to VerifyingKey",
+        "Read file bytes",
+        "Call verify_artifact from openclaw-crypto",
+        "Typecheck passes"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003D",
+      "title": "Add colored verification output",
+      "description": "As a developer, I need colored output so verification results are clear.",
+      "acceptanceCriteria": [
+        "Add colored or termcolor dependency",
+        "On success: print green ✓ with message",
+        "On failure: print red ✗ with error",
+        "Show signer DID (truncated for readability)",
+        "Typecheck passes"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003E",
+      "title": "Add local identity indicator",
+      "description": "As a developer, I need local identity detection so users know if they signed it.",
+      "acceptanceCriteria": [
+        "After successful verification, check if DID matches local identity",
+        "If match, print 'Local Identity' indicator",
+        "If no match, print 'External Identity'",
+        "Handle missing local identity gracefully",
+        "Typecheck passes"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003F",
+      "title": "Add tamper detection test",
+      "description": "As a developer, I need tamper test so verification catches modifications.",
+      "acceptanceCriteria": [
+        "Create test that signs a file",
+        "Modify one byte of the file",
+        "Verify signature fails",
+        "Verify error message indicates hash mismatch",
+        "Test passes",
+        "Typecheck passes"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004A",
+      "title": "Define manifest data structure",
+      "description": "As a developer, I need manifest types so contributions can be aggregated.",
+      "acceptanceCriteria": [
+        "Add ContributionManifest struct to types.rs",
+        "Fields: did, timestamp, artifacts (array of artifact references)",
+        "ArtifactReference includes: hash, signature, metadata, timestamp",
+        "Manifest itself is a SignatureEnvelopeV1 wrapper",
+        "Typecheck passes"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004B",
+      "title": "Implement manifest export logic",
+      "description": "As a developer, I need manifest export so contributions are portable.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-crypto/src/manifest.rs",
+        "Implement export_manifest(did, artifact_refs, timestamp) -> Result<SignatureEnvelopeV1>",
+        "Construct manifest with all artifact references",
+        "Sign manifest itself as an envelope",
+        "Return signed manifest envelope",
+        "Typecheck passes"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004C",
+      "title": "Implement manifest export command",
+      "description": "As a developer, I need manifest command wired so users can export.",
+      "acceptanceCriteria": [
+        "Add ManifestCmd struct with optional --output path",
+        "Load identity",
+        "Scan ~/.openclaw/signatures/ for .sig.json files (or ask user for paths)",
+        "Collect artifact references",
+        "Call export_manifest",
+        "Write to manifest.json or custom path",
+        "Print success message",
+        "Typecheck passes"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005A",
+      "title": "Create artifacts database table",
+      "description": "As a developer, I need artifacts table so signed artifacts can be stored.",
+      "acceptanceCriteria": [
+        "Create migration for artifacts table",
+        "Fields: id (UUID PK), hash (SHA-256 hex), did, timestamp, metadata (JSONB), signature, created_at",
+        "Add index on hash",
+        "Add index on did",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005B",
+      "title": "Implement artifact registration endpoint",
+      "description": "As a developer, I need POST /api/v1/artifacts so artifacts can be registered.",
+      "acceptanceCriteria": [
+        "Create route POST /api/v1/artifacts",
+        "Accept SignatureEnvelopeV1 in request body",
+        "Verify signature before storing",
+        "Extract hash, did, timestamp, metadata from envelope",
+        "Generate UUID for artifact",
+        "Insert into artifacts table",
+        "Return artifact ID and URL",
+        "Typecheck passes"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005C",
+      "title": "Add artifact registration validation",
+      "description": "As a developer, I need validation so invalid artifacts are rejected.",
+      "acceptanceCriteria": [
+        "Verify envelope signature cryptographically",
+        "Check for duplicate hashes (optionally allow)",
+        "Validate metadata JSON structure",
+        "Reject oversized metadata (> 10KB)",
+        "Return 400 with error details on failure",
+        "Typecheck passes"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006A",
+      "title": "Create artifact_derivations table",
+      "description": "As a developer, I need derivations table so attribution can be tracked.",
+      "acceptanceCriteria": [
+        "Create migration for artifact_derivations table",
+        "Fields: id, artifact_id (FK), derived_from_id (FK), created_at",
+        "Add foreign key constraints",
+        "Add unique constraint on (artifact_id, derived_from_id)",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006B",
+      "title": "Implement derivation declaration logic",
+      "description": "As a developer, I need derivation recording so attribution flows.",
+      "acceptanceCriteria": [
+        "When registering artifact, check metadata.derivedFrom field",
+        "If present, validate all referenced artifact IDs exist",
+        "Insert rows into artifact_derivations for each parent",
+        "Detect and reject cycles in derivation graph",
+        "Return error if parent artifact not found",
+        "Typecheck passes"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006C",
+      "title": "Add cycle detection for derivation graph",
+      "description": "As a developer, I need cycle prevention so graph stays acyclic.",
+      "acceptanceCriteria": [
+        "Implement detect_cycle(artifact_id, parent_id) -> bool",
+        "Use depth-first search to check if parent_id already derives from artifact_id",
+        "Limit search depth to 100 to prevent DoS",
+        "Return true if cycle detected",
+        "Add test for cycle detection",
+        "Typecheck passes"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007A",
+      "title": "Implement attribution graph query endpoint",
+      "description": "As a developer, I need GET /api/v1/artifacts/{id}/attribution so derivations are queryable.",
+      "acceptanceCriteria": [
+        "Create route GET /api/v1/artifacts/{id}/attribution",
+        "Accept depth query param (default 1, max 10)",
+        "Traverse artifact_derivations recursively",
+        "Return list of parent artifacts with DID, timestamp, metadata",
+        "Include depth level in response",
+        "Typecheck passes"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007B",
+      "title": "Add attribution graph result formatting",
+      "description": "As a developer, I need formatted response so attribution is readable.",
+      "acceptanceCriteria": [
+        "Response includes: artifact_id, did, timestamp, contribution description from metadata",
+        "Group by depth level",
+        "Order by timestamp (newest first)",
+        "Limit results per depth level to 100",
+        "Return JSON array",
+        "Typecheck passes"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008A",
+      "title": "Create did_bindings table",
+      "description": "As a developer, I need did_bindings table so DIDs can link to accounts.",
+      "acceptanceCriteria": [
+        "Create migration for did_bindings table",
+        "Fields: id, user_id (FK), did, created_at, revoked_at (nullable)",
+        "Add index on user_id",
+        "Add index on did",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008B",
+      "title": "Create did_challenges table",
+      "description": "As a developer, I need challenges table so binding is secure.",
+      "acceptanceCriteria": [
+        "Create migration for did_challenges table",
+        "Fields: id, user_id (FK), challenge (text), expires_at, used_at (nullable), created_at",
+        "Add index on challenge",
+        "Add index on expires_at",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008C",
+      "title": "Implement challenge generation endpoint",
+      "description": "As a developer, I need POST /api/v1/identity/challenge so binding can start.",
+      "acceptanceCriteria": [
+        "Create route POST /api/v1/identity/challenge",
+        "Require authentication",
+        "Generate random 32-byte challenge",
+        "Encode as hex or base64",
+        "Set expiry to 10 minutes from now",
+        "Insert into did_challenges table",
+        "Return challenge and expiresAt",
+        "Typecheck passes"
+      ],
+      "priority": 42,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008D",
+      "title": "Implement DID binding endpoint",
+      "description": "As a developer, I need POST /api/v1/identity/bind so DIDs can be linked.",
+      "acceptanceCriteria": [
+        "Create route POST /api/v1/identity/bind",
+        "Require authentication",
+        "Accept did, challenge, challengeSignature in body",
+        "Load challenge from database",
+        "Verify challenge not expired or used",
+        "Extract public key from DID",
+        "Verify signature over challenge bytes",
+        "Insert into did_bindings table",
+        "Mark challenge as used",
+        "Return success with DID",
+        "Typecheck passes"
+      ],
+      "priority": 43,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008E",
+      "title": "Add rate limiting for challenge endpoint",
+      "description": "As a developer, I need rate limiting so challenges can't be spammed.",
+      "acceptanceCriteria": [
+        "Add rate limit middleware: 5 challenges per user per hour",
+        "Return 429 Too Many Requests if exceeded",
+        "Include Retry-After header",
+        "Typecheck passes"
+      ],
+      "priority": 44,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008F",
+      "title": "Add rate limiting for bind endpoint",
+      "description": "As a developer, I need rate limiting so bind attempts are limited.",
+      "acceptanceCriteria": [
+        "Add rate limit: 3 bind attempts per challenge",
+        "Lock challenge after 3 failed attempts",
+        "Return 429 with error message",
+        "Typecheck passes"
+      ],
+      "priority": 45,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008G",
+      "title": "Add integration test for DID binding flow",
+      "description": "As a developer, I need binding test so flow works end-to-end.",
+      "acceptanceCriteria": [
+        "Test creates user account",
+        "Test requests challenge",
+        "Test signs challenge with OpenClaw",
+        "Test submits bind request",
+        "Test verifies DID stored in database",
+        "Test passes",
+        "Typecheck passes"
+      ],
+      "priority": 46,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009A",
+      "title": "Add DID field to user profile query",
+      "description": "As a developer, I need DID in profile data so UI can display it.",
+      "acceptanceCriteria": [
+        "Update profile query to join did_bindings",
+        "Return array of bound DIDs with created_at",
+        "Filter out revoked bindings",
+        "Order by created_at (newest first)",
+        "Typecheck passes"
+      ],
+      "priority": 47,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009B",
+      "title": "Implement DID display component",
+      "description": "As a developer, I need DID component so profiles show identities.",
+      "acceptanceCriteria": [
+        "Create IdentityBadge component",
+        "Display did:key:z6Mk... with middle truncated (e.g., did:key:z6Mk...Wp)",
+        "Show full DID on hover (tooltip)",
+        "Click to copy full DID to clipboard",
+        "Show binding timestamp",
+        "Typecheck passes"
+      ],
+      "priority": 48,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009C",
+      "title": "Add DID badge to profile page",
+      "description": "As a developer, I need badge on profile so users see identities.",
+      "acceptanceCriteria": [
+        "Add IdentityBadge to profile page layout",
+        "Show all bound DIDs (max 5, then expand)",
+        "Display 'No identity bound' if empty",
+        "Include 'Bind DID' button linking to instructions",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 49,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010A",
+      "title": "Add signature fields to posts table",
+      "description": "As a developer, I need signature storage so posts can be verified.",
+      "acceptanceCriteria": [
+        "Create migration to add signature_envelope_json (JSONB nullable)",
+        "Add verified_did (text nullable)",
+        "Add verification_status enum: none, invalid, valid_unbound, valid_bound",
+        "Add index on verification_status",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 50,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010B",
+      "title": "Implement post signature verification logic",
+      "description": "As a developer, I need verification logic so signed posts are validated.",
+      "acceptanceCriteria": [
+        "Implement verify_post_signature(post_body, envelope, user_id) -> VerificationResult",
+        "Recompute SHA-256 hash of post body (UTF-8 bytes)",
+        "Verify hash matches envelope.hash.value",
+        "Extract DID from envelope and verify signature",
+        "Check if DID is bound to user_id",
+        "Return status: valid_bound, valid_unbound, or invalid",
+        "Add test for verification logic",
+        "Typecheck passes"
+      ],
+      "priority": 51,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010C",
+      "title": "Update post creation endpoint to accept signatures",
+      "description": "As a developer, I need signature support in POST /api/v1/posts.",
+      "acceptanceCriteria": [
+        "Accept optional signatureEnvelope field in request body",
+        "If present, call verify_post_signature",
+        "Store envelope JSON, verified_did, and verification_status",
+        "If not present, set status to none",
+        "Return post with verification status",
+        "Typecheck passes"
+      ],
+      "priority": 52,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011A",
+      "title": "Create VerifiedBadge component",
+      "description": "As a developer, I need badge component so verified posts are marked.",
+      "acceptanceCriteria": [
+        "Create VerifiedBadge component",
+        "Show green ✓ icon for valid_bound status",
+        "Show 'Signed' text (no checkmark) for valid_unbound",
+        "Show nothing for none or invalid status",
+        "Add hover tooltip with signer DID",
+        "Typecheck passes"
+      ],
+      "priority": 53,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011B",
+      "title": "Add badge to post card component",
+      "description": "As a developer, I need badge in post UI so users see verification.",
+      "acceptanceCriteria": [
+        "Add VerifiedBadge to PostCard component",
+        "Position badge next to author name or timestamp",
+        "Pass verification_status and verified_did as props",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 54,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011C",
+      "title": "Implement signature envelope modal",
+      "description": "As a developer, I need envelope viewer so signatures are auditable.",
+      "acceptanceCriteria": [
+        "Create SignatureModal component",
+        "Display full envelope JSON with syntax highlighting",
+        "Show DID, hash, timestamp, signature fields",
+        "Include 'Copy JSON' button",
+        "Open modal when clicking VerifiedBadge",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 55,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012A",
+      "title": "Create m_credits_accounts table",
+      "description": "As a developer, I need accounts table so balances can be tracked.",
+      "acceptanceCriteria": [
+        "Create migration for m_credits_accounts table",
+        "Fields: id, did (unique), balance (numeric 20,8), promo_balance (numeric 20,8), created_at, updated_at",
+        "Add index on did",
+        "Default balances to 0.00000000",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 56,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012B",
+      "title": "Create m_credits_ledger table for event sourcing",
+      "description": "As a developer, I need ledger table so all transactions are immutable.",
+      "acceptanceCriteria": [
+        "Create migration for m_credits_ledger table",
+        "Fields: id (UUID PK), event_type (enum: mint, burn, transfer, hold, release), from_did, to_did, amount, metadata (JSONB), created_at",
+        "Add index on event_type",
+        "Add index on from_did",
+        "Add index on to_did",
+        "Add index on created_at",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 57,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012C",
+      "title": "Create purchase invoices table",
+      "description": "As a developer, I need invoices table so purchases are tracked.",
+      "acceptanceCriteria": [
+        "Create migration for purchase_invoices table",
+        "Fields: id, user_id (FK), amount_usd, amount_credits, payment_provider (stripe, usdc, etc.), external_ref, status (pending, completed, failed), created_at",
+        "Add index on user_id",
+        "Add index on status",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 58,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012D",
+      "title": "Implement credit purchase endpoint",
+      "description": "As a developer, I need POST /api/v1/credits/purchase so credits can be bought.",
+      "acceptanceCriteria": [
+        "Create route POST /api/v1/credits/purchase",
+        "Require authentication",
+        "Accept amount_usd in request body",
+        "Create invoice record with status=pending",
+        "Integrate with Stripe checkout (or placeholder for now)",
+        "Return invoice ID and payment URL",
+        "Typecheck passes"
+      ],
+      "priority": 59,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012E",
+      "title": "Implement credit minting on payment confirmation",
+      "description": "As a developer, I need mint logic so credits are created when paid.",
+      "acceptanceCriteria": [
+        "Implement handle_payment_webhook for payment provider",
+        "Verify payment signature/authenticity",
+        "Load invoice and check status=pending",
+        "Calculate credits: amount_credits = amount_usd / credit_rate",
+        "Insert mint event into m_credits_ledger",
+        "Update m_credits_accounts balance atomically",
+        "Update invoice status=completed",
+        "Include external payment reference in ledger metadata",
+        "Typecheck passes"
+      ],
+      "priority": 60,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012F",
+      "title": "Implement promo credit grants",
+      "description": "As a developer, I need promo logic so starter credits can be granted.",
+      "acceptanceCriteria": [
+        "Implement grant_promo_credits(did, amount, reason) -> Result<()>",
+        "Insert mint event with event_type=promo_mint",
+        "Update promo_balance (separate from transferable balance)",
+        "Add expiry timestamp in metadata",
+        "Limit: max 100 promo credits per DID",
+        "Add admin endpoint POST /api/v1/credits/grant-promo",
+        "Typecheck passes"
+      ],
+      "priority": 61,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012G",
+      "title": "Add reserve attestation endpoint",
+      "description": "As a developer, I need attestation endpoint so reserves are transparent.",
+      "acceptanceCriteria": [
+        "Create route GET /api/v1/credits/reserves",
+        "Calculate total outstanding credits (sum of all balances)",
+        "Calculate total reserves (sum of completed invoices)",
+        "Return reserve_coverage_ratio = reserves / outstanding",
+        "Include timestamp and cryptographic signature",
+        "Typecheck passes"
+      ],
+      "priority": 62,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013A",
+      "title": "Create bounties table",
+      "description": "As a developer, I need bounties table so tasks can be posted.",
+      "acceptanceCriteria": [
+        "Create migration for bounties table",
+        "Fields: id, poster_did, title, description, reward_credits, closure_type (tests, quorum, requester), status (open, in_progress, completed, cancelled), metadata (JSONB), created_at, deadline",
+        "Add index on status",
+        "Add index on poster_did",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 63,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013B",
+      "title": "Create escrow_holds table",
+      "description": "As a developer, I need escrow table so payments can be locked.",
+      "acceptanceCriteria": [
+        "Create migration for escrow_holds table",
+        "Fields: id, bounty_id (FK), holder_did, amount, status (held, released, cancelled), created_at, released_at",
+        "Add index on bounty_id",
+        "Add index on holder_did",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 64,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013C",
+      "title": "Implement bounty posting endpoint",
+      "description": "As a developer, I need POST /api/v1/bounties so tasks can be created.",
+      "acceptanceCriteria": [
+        "Create route POST /api/v1/bounties",
+        "Require authentication and DID binding",
+        "Accept title, description, reward_credits, closure_type, deadline",
+        "For closure_type=tests: require eval_harness_hash in metadata",
+        "For closure_type=quorum: require reviewer_count, min_reviewer_rep",
+        "Check poster has sufficient balance",
+        "Create escrow hold (deduct from balance, lock in escrow)",
+        "Insert bounty with status=open",
+        "Insert hold event into ledger",
+        "Return bounty ID",
+        "Typecheck passes"
+      ],
+      "priority": 65,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014A",
+      "title": "Create bounty_submissions table",
+      "description": "As a developer, I need submissions table so work can be submitted.",
+      "acceptanceCriteria": [
+        "Create migration for bounty_submissions table",
+        "Fields: id, bounty_id (FK), submitter_did, artifact_hash, signature_envelope (JSONB), execution_receipt (JSONB nullable), status (pending, approved, rejected), created_at",
+        "Add index on bounty_id",
+        "Add index on submitter_did",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 66,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014B",
+      "title": "Implement bounty submission endpoint",
+      "description": "As a developer, I need POST /api/v1/bounties/{id}/submit so work can be submitted.",
+      "acceptanceCriteria": [
+        "Create route POST /api/v1/bounties/{id}/submit",
+        "Require authentication and DID binding",
+        "Accept signature_envelope, optional execution_receipt",
+        "Verify envelope signature",
+        "For closure_type=tests: verify execution_receipt includes test results",
+        "Insert submission with status=pending",
+        "Return submission ID",
+        "Typecheck passes"
+      ],
+      "priority": 67,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014C",
+      "title": "Implement test-based auto-approval",
+      "description": "As a developer, I need test verification so test closures are automatic.",
+      "acceptanceCriteria": [
+        "For closure_type=tests submissions:",
+        "Load eval_harness_hash from bounty metadata",
+        "Verify execution_receipt.harness_hash matches",
+        "Check execution_receipt.all_tests_passed = true",
+        "If valid: auto-approve submission, release escrow",
+        "If invalid: mark submission as rejected",
+        "Typecheck passes"
+      ],
+      "priority": 68,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014D",
+      "title": "Implement escrow release on approval",
+      "description": "As a developer, I need release logic so payments complete.",
+      "acceptanceCriteria": [
+        "Implement release_escrow(bounty_id, recipient_did) -> Result<()>",
+        "Mark escrow_hold as released",
+        "Insert transfer event into ledger (from escrow to recipient)",
+        "Update recipient's m_credits_accounts balance atomically",
+        "Update bounty status=completed",
+        "Mint reputation for submitter based on bounty difficulty and closure type",
+        "Typecheck passes"
+      ],
+      "priority": 69,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014E",
+      "title": "Record attribution for bounty completions",
+      "description": "As a developer, I need attribution recording so derivations are tracked.",
+      "acceptanceCriteria": [
+        "On submission approval, check if artifact is registered in ClawdHub",
+        "If not, auto-register with signature envelope",
+        "If bounty metadata includes parent_artifact_id, create derivation link",
+        "Update submission with artifact_id reference",
+        "Typecheck passes"
+      ],
+      "priority": 70,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015A",
+      "title": "Create compute_providers table",
+      "description": "As a developer, I need providers table so redemptions are tracked.",
+      "acceptanceCriteria": [
+        "Create migration for compute_providers table",
+        "Fields: id, name, provider_type (openai, anthropic, gpu_provider), api_endpoint, conversion_rate (credits per unit), created_at",
+        "Insert default providers (OpenAI, Anthropic)",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 71,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015B",
+      "title": "Implement credit redemption endpoint",
+      "description": "As a developer, I need POST /api/v1/credits/redeem so credits can be spent.",
+      "acceptanceCriteria": [
+        "Create route POST /api/v1/credits/redeem",
+        "Require authentication and DID binding",
+        "Accept provider_id and amount",
+        "Check user has sufficient balance",
+        "Deduct from m_credits_accounts balance",
+        "Insert burn event into ledger",
+        "Call provider API to allocate credits/quota",
+        "Store allocation details in redemption_receipts table",
+        "Return allocation ID and details",
+        "Typecheck passes"
+      ],
+      "priority": 72,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015C",
+      "title": "Create redemption_receipts table",
+      "description": "As a developer, I need receipts table so redemptions are verifiable.",
+      "acceptanceCriteria": [
+        "Create migration for redemption_receipts table",
+        "Fields: id, user_did, provider_id, amount_credits, allocation_id (from provider), metadata (JSONB), created_at",
+        "Add index on user_did",
+        "Add index on provider_id",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 73,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015D",
+      "title": "Implement balance check endpoint",
+      "description": "As a developer, I need GET /api/v1/credits/balance so users can check funds.",
+      "acceptanceCriteria": [
+        "Create route GET /api/v1/credits/balance",
+        "Require authentication and DID binding",
+        "Return balance, promo_balance, total",
+        "Include recent transactions (last 10)",
+        "Typecheck passes"
+      ],
+      "priority": 74,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016A",
+      "title": "Implement reputation calculation",
+      "description": "As a developer, I need reputation logic so quality is rewarded.",
+      "acceptanceCriteria": [
+        "Create m_reputation table: did, total_rep, decay_factor, last_updated",
+        "Implement mint_reputation(did, amount, reason, closure_type) -> Result<()>",
+        "Weight by closure_type: tests=1.5x, quorum=1.2x, requester=1.0x",
+        "Weight by reviewer credibility (if quorum)",
+        "Apply time decay: rep *= 0.99 per month",
+        "Insert reputation event into ledger",
+        "Typecheck passes"
+      ],
+      "priority": 75,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016B",
+      "title": "Create bounty marketplace page",
+      "description": "As a developer, I need /marketplace so bounties are browsable.",
+      "acceptanceCriteria": [
+        "Create route GET /marketplace",
+        "Query bounties with status=open",
+        "Display title, description, reward, poster DID (truncated), deadline",
+        "Show closure_type badge (tests, quorum, requester)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 76,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016C",
+      "title": "Add bounty filters to marketplace",
+      "description": "As a developer, I need filters so users can find relevant bounties.",
+      "acceptanceCriteria": [
+        "Add filter dropdowns: reward range, closure type, deadline",
+        "Add search by title/description",
+        "Add sort options: newest, highest reward, ending soon",
+        "Filters persist in URL query params",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 77,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016D",
+      "title": "Add 'Accept Bounty' action",
+      "description": "As a developer, I need accept button so users can claim bounties.",
+      "acceptanceCriteria": [
+        "Add 'Accept Bounty' button to each listing",
+        "Require DID binding (show bind prompt if not bound)",
+        "On click: POST to /api/v1/bounties/{id}/accept",
+        "Update bounty status=in_progress",
+        "Show confirmation and submission instructions",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 78,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016E-R",
+      "title": "Implement dispute creation endpoint",
+      "description": "As a developer, I need POST /api/v1/bounties/{id}/dispute so fraud can be challenged.",
+      "acceptanceCriteria": [
+        "Create disputes table: id, bounty_id, submission_id, initiator_did, reason, status, created_at",
+        "Create route POST /api/v1/bounties/{id}/dispute",
+        "Require stake: deposit 10% of bounty reward to initiate dispute",
+        "Lock escrow until dispute resolved",
+        "Set dispute window (e.g., 7 days after submission)",
+        "Return dispute ID",
+        "Typecheck passes"
+      ],
+      "priority": 79,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016F-R",
+      "title": "Implement dispute resolution endpoint",
+      "description": "As a developer, I need POST /api/v1/disputes/{id}/resolve so disputes can close.",
+      "acceptanceCriteria": [
+        "Create route POST /api/v1/disputes/{id}/resolve",
+        "Require admin/arbiter role",
+        "Accept outcome: uphold_submission or reject_submission",
+        "If uphold: slash initiator stake, release escrow to submitter",
+        "If reject: slash submitter stake, return escrow to poster, return initiator stake",
+        "Update reputation weights for involved parties",
+        "Typecheck passes"
+      ],
+      "priority": 80,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017A",
+      "title": "Define policy file JSON schema",
+      "description": "As a developer, I need schema so policies are validated.",
+      "acceptanceCriteria": [
+        "Create policy.schema.json",
+        "Define fields: max_spend_per_day, max_spend_per_bounty, allowed_delegates (array), approval_tiers (array of {threshold, require_approval})",
+        "Add defaults for all fields",
+        "Document schema in POLICY.md",
+        "Typecheck passes"
+      ],
+      "priority": 81,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017B",
+      "title": "Implement policy validation logic",
+      "description": "As a developer, I need validation so invalid policies are rejected.",
+      "acceptanceCriteria": [
+        "Implement validate_policy(policy_json: &str) -> Result<Policy>",
+        "Parse JSON and check against schema",
+        "Validate threshold values are positive",
+        "Validate allowed_delegates are valid DIDs",
+        "Return structured Policy object or error",
+        "Add test for valid and invalid policies",
+        "Typecheck passes"
+      ],
+      "priority": 82,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017C",
+      "title": "Implement policy set command",
+      "description": "As a developer, I need CLI command so users can set policies.",
+      "acceptanceCriteria": [
+        "Add 'openclaw policy set' subcommand",
+        "Accept --file path to policy.json",
+        "Validate policy file with validate_policy",
+        "Write to ~/.openclaw/policy.json",
+        "Set file permissions to 0600",
+        "Print success with policy summary",
+        "Typecheck passes"
+      ],
+      "priority": 83,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018A",
+      "title": "Create approval_requests table",
+      "description": "As a developer, I need approvals table so requests are tracked.",
+      "acceptanceCriteria": [
+        "Create migration for approval_requests table",
+        "Fields: id, operator_did, bounty_id, action_type (delegate, spend), amount, status (pending, approved, rejected), metadata (JSONB), created_at, resolved_at",
+        "Add index on operator_did",
+        "Add index on status",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 84,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018B",
+      "title": "Implement approval check in bounty posting",
+      "description": "As a developer, I need approval gate so high-value bounties require approval.",
+      "acceptanceCriteria": [
+        "When posting bounty, load user's policy.json",
+        "Check if reward > any approval_tier threshold",
+        "If approval required: create approval_request with status=pending",
+        "Do NOT create escrow hold yet",
+        "Return approval_request_id in response",
+        "Send notification to operator (email or webhook)",
+        "Typecheck passes"
+      ],
+      "priority": 85,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018C",
+      "title": "Implement approval command",
+      "description": "As a developer, I need approve command so operators can grant approval.",
+      "acceptanceCriteria": [
+        "Add 'openclaw approve <request_id>' subcommand",
+        "Load approval request from database",
+        "Verify request belongs to local identity",
+        "Display bounty details for review",
+        "Prompt for confirmation (y/n)",
+        "If confirmed: POST to /api/v1/approvals/{id}/approve",
+        "Update status=approved, proceed with bounty creation",
+        "Typecheck passes"
+      ],
+      "priority": 86,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018D",
+      "title": "Implement rejection command",
+      "description": "As a developer, I need reject command so operators can deny requests.",
+      "acceptanceCriteria": [
+        "Add 'openclaw reject <request_id>' subcommand",
+        "Load approval request",
+        "Prompt for reason",
+        "POST to /api/v1/approvals/{id}/reject",
+        "Update status=rejected, cancel bounty creation",
+        "Notify requester of rejection",
+        "Typecheck passes"
+      ],
+      "priority": 87,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019A",
+      "title": "Create agent_suspensions table",
+      "description": "As a developer, I need suspensions table so kill switches are tracked.",
+      "acceptanceCriteria": [
+        "Create migration for agent_suspensions table",
+        "Fields: id, operator_did, reason, suspended_at, resumed_at (nullable)",
+        "Add index on operator_did",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 88,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019B",
+      "title": "Implement emergency-stop command",
+      "description": "As a developer, I need emergency-stop so runaway agents can be halted.",
+      "acceptanceCriteria": [
+        "Add 'openclaw emergency-stop' subcommand",
+        "Prompt for confirmation with warning message",
+        "If confirmed: POST to /api/v1/agents/emergency-stop",
+        "Cancel all pending approval requests for this DID",
+        "Cancel all open bounties posted by this DID (refund escrow)",
+        "Insert suspension record",
+        "Mark agent as suspended in platform",
+        "Print confirmation",
+        "Typecheck passes"
+      ],
+      "priority": 89,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019C",
+      "title": "Implement suspension check middleware",
+      "description": "As a developer, I need suspension check so suspended agents can't act.",
+      "acceptanceCriteria": [
+        "Add middleware to all sensitive endpoints (post bounty, submit, etc.)",
+        "Check if DID has active suspension",
+        "If suspended: return 403 Forbidden with message",
+        "Typecheck passes"
+      ],
+      "priority": 90,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019D",
+      "title": "Implement resume command",
+      "description": "As a developer, I need resume so agents can be reactivated.",
+      "acceptanceCriteria": [
+        "Add 'openclaw resume' subcommand",
+        "Require re-initialization (confirm identity)",
+        "POST to /api/v1/agents/resume",
+        "Update suspension record with resumed_at",
+        "Remove suspension flag",
+        "Print confirmation",
+        "Typecheck passes"
+      ],
+      "priority": 91,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020A",
+      "title": "Implement Merkle tree for ledger events",
+      "description": "As a developer, I need Merkle tree so ledger is auditable.",
+      "acceptanceCriteria": [
+        "Add merkle-tree crate dependency (or implement simple binary tree)",
+        "Implement compute_merkle_root(events: Vec<LedgerEvent>) -> [u8; 32]",
+        "Hash each event JSON canonically",
+        "Build binary Merkle tree",
+        "Return root hash",
+        "Add test verifying deterministic roots",
+        "Typecheck passes"
+      ],
+      "priority": 92,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020B",
+      "title": "Create merkle_anchors table",
+      "description": "As a developer, I need anchors table so roots are published.",
+      "acceptanceCriteria": [
+        "Create migration for merkle_anchors table",
+        "Fields: id, root_hash (bytes), period_start, period_end, event_count, created_at, l2_tx_hash (nullable)",
+        "Add index on created_at",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 93,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020C",
+      "title": "Implement periodic Merkle anchor job",
+      "description": "As a developer, I need anchor job so roots are computed regularly.",
+      "acceptanceCriteria": [
+        "Create cron job (or scheduled task) running hourly",
+        "Query ledger events from last anchor to now",
+        "Compute Merkle root",
+        "Insert into merkle_anchors table",
+        "Optionally publish to L2 (Base) via contract call",
+        "Store L2 tx hash if published",
+        "Typecheck passes"
+      ],
+      "priority": 94,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020D",
+      "title": "Implement inclusion proof generation",
+      "description": "As a developer, I need inclusion proofs so users can verify their transactions.",
+      "acceptanceCriteria": [
+        "Implement generate_inclusion_proof(event_id, anchor_id) -> Result<MerkleProof>",
+        "Load anchor and rebuild Merkle tree",
+        "Generate proof path from event to root",
+        "Return proof as array of hashes",
+        "Add endpoint GET /api/v1/credits/proof/{event_id}",
+        "Typecheck passes"
+      ],
+      "priority": 95,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020E",
+      "title": "Implement collusion detection scoring",
+      "description": "As a developer, I need collusion detection so wash trading is flagged.",
+      "acceptanceCriteria": [
+        "Implement detect_collusion_risk(did: &str) -> f64 (0.0 to 1.0 risk score)",
+        "Detect closed loops: A pays B pays A within 7 days",
+        "Detect tight clusters: calculate graph clustering coefficient",
+        "Weight by external edges (low external = high risk)",
+        "Add periodic job to compute scores for all DIDs",
+        "Store scores in m_reputation table",
+        "Downweight reputation by collusion_risk factor",
+        "Typecheck passes"
+      ],
+      "priority": 96,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021A",
+      "title": "Add CI workflow for OpenClaw",
+      "description": "As a developer, I need CI so code quality is enforced.",
+      "acceptanceCriteria": [
+        "Create .github/workflows/ci.yml",
+        "Run on: push, pull_request",
+        "Jobs: test (Ubuntu, macOS, Windows)",
+        "Run cargo test --all",
+        "Run cargo clippy -- -D warnings",
+        "Run cargo fmt -- --check",
+        "Cache cargo dependencies",
+        "Workflow passes",
+        "Typecheck passes"
+      ],
+      "priority": 97,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021B",
+      "title": "Add release workflow for OpenClaw binaries",
+      "description": "As a developer, I need release workflow so binaries are built.",
+      "acceptanceCriteria": [
+        "Create .github/workflows/release.yml",
+        "Trigger on: tag push (v*)",
+        "Build for: Linux (x86_64), macOS (x86_64, arm64), Windows (x86_64)",
+        "Create GitHub release with binaries",
+        "Workflow passes",
+        "Typecheck passes"
+      ],
+      "priority": 98,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022A",
+      "title": "Write OpenClaw README with quickstart",
+      "description": "As a developer, I need README so users can get started.",
+      "acceptanceCriteria": [
+        "Create crates/openclaw-cli/README.md",
+        "Include installation instructions",
+        "Include quickstart: init, sign, verify examples",
+        "Document all CLI commands",
+        "Link to RFC and technical docs",
+        "Typecheck passes"
+      ],
+      "priority": 99,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022B",
+      "title": "Write API documentation for economics endpoints",
+      "description": "As a developer, I need API docs so integrations are clear.",
+      "acceptanceCriteria": [
+        "Create docs/API.md",
+        "Document all endpoints: /credits/purchase, /credits/redeem, /bounties, /disputes, etc.",
+        "Include request/response examples",
+        "Document authentication requirements",
+        "Document rate limits",
+        "Typecheck passes"
+      ],
+      "priority": 100,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023A",
+      "title": "Add monitoring for reserve coverage ratio",
+      "description": "As a developer, I need monitoring so solvency is tracked.",
+      "acceptanceCriteria": [
+        "Create monitoring dashboard or alert",
+        "Track reserve_coverage_ratio daily",
+        "Alert if ratio < 1.0 (underfunded)",
+        "Alert if ratio < 0.9 (critical)",
+        "Log to monitoring service (Datadog, Prometheus, etc.)",
+        "Typecheck passes"
+      ],
+      "priority": 101,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023B",
+      "title": "Add monitoring for dispute rate",
+      "description": "As a developer, I need dispute monitoring so fraud is detected.",
+      "acceptanceCriteria": [
+        "Track dispute_rate = disputes / submissions",
+        "Alert if rate > 5% (abnormal)",
+        "Break down by closure_type",
+        "Track resolution outcomes",
+        "Log to monitoring service",
+        "Typecheck passes"
+      ],
+      "priority": 102,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024A",
+      "title": "Create end-to-end test for full bounty flow",
+      "description": "As a developer, I need E2E test so the system works holistically.",
+      "acceptanceCriteria": [
+        "Test: user purchases credits",
+        "Test: user posts bounty with escrow",
+        "Test: agent accepts bounty",
+        "Test: agent submits work",
+        "Test: auto-approval (for test closure)",
+        "Test: escrow releases to agent",
+        "Test: reputation minted",
+        "Test: agent redeems credits",
+        "All steps pass",
+        "Typecheck passes"
+      ],
+      "priority": 103,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025A",
+      "title": "Implement security audit checklist",
+      "description": "As a developer, I need security checklist so vulnerabilities are avoided.",
+      "acceptanceCriteria": [
+        "Create SECURITY.md with checklist",
+        "Include: SQL injection prevention, XSS prevention, CSRF protection, rate limiting, input validation",
+        "Document secure key storage practices",
+        "Document dispute resolution safeguards",
+        "Checklist complete",
+        "Typecheck passes"
+      ],
+      "priority": 104,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

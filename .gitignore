@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+target/
+.cargo/
+
+# Environment & Secrets
+.env
+.env.local
+*.key
+*.pem
+~/.config/moltbook/credentials.json
+
+# Build artifacts
+dist/
+build/
+*.wasm
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Ralph execution
+progress.txt
+archive/
