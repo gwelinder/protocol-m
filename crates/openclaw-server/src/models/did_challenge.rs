@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+/// Maximum number of failed bind attempts before a challenge is locked.
+pub const MAX_BIND_ATTEMPTS: i32 = 3;
+
 /// Represents a challenge for secure DID binding.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct DidChallenge {
@@ -20,6 +23,8 @@ pub struct DidChallenge {
     pub used_at: Option<DateTime<Utc>>,
     /// When this challenge was created.
     pub created_at: DateTime<Utc>,
+    /// Number of failed bind attempts for this challenge.
+    pub failed_attempts: i32,
 }
 
 /// Data required to create a new DID challenge.
@@ -45,6 +50,11 @@ impl DidChallenge {
     pub fn is_expired(&self) -> bool {
         self.expires_at <= Utc::now()
     }
+
+    /// Returns true if this challenge has been locked due to too many failed attempts.
+    pub fn is_locked(&self) -> bool {
+        self.failed_attempts >= MAX_BIND_ATTEMPTS
+    }
 }
 
 #[cfg(test)]
@@ -53,6 +63,10 @@ mod tests {
     use chrono::Duration;
 
     fn make_challenge(expires_at: DateTime<Utc>, used_at: Option<DateTime<Utc>>) -> DidChallenge {
+        make_challenge_with_attempts(expires_at, used_at, 0)
+    }
+
+    fn make_challenge_with_attempts(expires_at: DateTime<Utc>, used_at: Option<DateTime<Utc>>, failed_attempts: i32) -> DidChallenge {
         DidChallenge {
             id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
@@ -60,6 +74,7 @@ mod tests {
             expires_at,
             used_at,
             created_at: Utc::now(),
+            failed_attempts,
         }
     }
 
@@ -97,5 +112,28 @@ mod tests {
 
         let expired = make_challenge(Utc::now() - Duration::minutes(1), None);
         assert!(expired.is_expired());
+    }
+
+    #[test]
+    fn test_is_locked() {
+        let not_locked = make_challenge_with_attempts(Utc::now() + Duration::minutes(10), None, 0);
+        assert!(!not_locked.is_locked());
+
+        let one_attempt = make_challenge_with_attempts(Utc::now() + Duration::minutes(10), None, 1);
+        assert!(!one_attempt.is_locked());
+
+        let two_attempts = make_challenge_with_attempts(Utc::now() + Duration::minutes(10), None, 2);
+        assert!(!two_attempts.is_locked());
+
+        let three_attempts = make_challenge_with_attempts(Utc::now() + Duration::minutes(10), None, 3);
+        assert!(three_attempts.is_locked());
+
+        let more_attempts = make_challenge_with_attempts(Utc::now() + Duration::minutes(10), None, 5);
+        assert!(more_attempts.is_locked());
+    }
+
+    #[test]
+    fn test_max_bind_attempts_constant() {
+        assert_eq!(MAX_BIND_ATTEMPTS, 3);
     }
 }

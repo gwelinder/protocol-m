@@ -95,6 +95,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-008E: Added rate limiting for challenge endpoint (5 challenges per user per hour)
 - US-008E: Added TooManyRequests error variant with Retry-After header support
 - US-008E: Added 2 unit tests for rate limit configuration and result struct
+- US-008F: Added rate limiting for bind endpoint (3 attempts per challenge)
+- US-008F: Added failed_attempts column to did_challenges table
+- US-008F: Added is_locked() helper to DidChallenge model
+- US-008F: Added increment_failed_attempts function for atomic counter updates
+- US-008F: Returns 429 with descriptive message when challenge locked
+- US-008F: Added 4 unit tests for bind attempt limiting
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

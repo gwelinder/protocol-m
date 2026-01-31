@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::models::did_binding::DidBinding;
-use crate::models::did_challenge::DidChallenge;
+use crate::models::did_challenge::{DidChallenge, MAX_BIND_ATTEMPTS};
 use openclaw_crypto::did_to_verifying_key;
 
 /// Challenge length in bytes (32 bytes = 256 bits).
@@ -164,6 +164,26 @@ async fn check_challenge_rate_limit(
     }
 }
 
+/// Increments the failed_attempts counter for a challenge.
+async fn increment_failed_attempts(
+    pool: &PgPool,
+    challenge_id: Uuid,
+) -> Result<(), AppError> {
+    sqlx::query(
+        r#"
+        UPDATE did_challenges
+        SET failed_attempts = failed_attempts + 1
+        WHERE id = $1
+        "#,
+    )
+    .bind(challenge_id)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to increment failed attempts: {}", e)))?;
+
+    Ok(())
+}
+
 /// POST /api/v1/identity/challenge
 ///
 /// Creates a new challenge for DID binding.
@@ -193,9 +213,9 @@ async fn create_challenge(
     // Insert challenge into database
     let _inserted: DidChallenge = sqlx::query_as(
         r#"
-        INSERT INTO did_challenges (id, user_id, challenge, expires_at, created_at)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, user_id, challenge, expires_at, used_at, created_at
+        INSERT INTO did_challenges (id, user_id, challenge, expires_at, created_at, failed_attempts)
+        VALUES ($1, $2, $3, $4, $5, 0)
+        RETURNING id, user_id, challenge, expires_at, used_at, created_at, failed_attempts
         "#,
     )
     .bind(Uuid::new_v4())
@@ -229,7 +249,7 @@ async fn bind_did(
     // Step 2: Load challenge from database
     let challenge_record: Option<DidChallenge> = sqlx::query_as(
         r#"
-        SELECT id, user_id, challenge, expires_at, used_at, created_at
+        SELECT id, user_id, challenge, expires_at, used_at, created_at, failed_attempts
         FROM did_challenges
         WHERE challenge = $1 AND user_id = $2
         "#,
@@ -243,38 +263,67 @@ async fn bind_did(
     let challenge_record = challenge_record
         .ok_or_else(|| AppError::BadRequest("Challenge not found".to_string()))?;
 
-    // Step 3: Verify challenge is not expired
+    // Step 3: Verify challenge is not locked due to too many failed attempts
+    if challenge_record.is_locked() {
+        return Err(AppError::TooManyRequests {
+            message: format!(
+                "Challenge locked after {} failed attempts. Please request a new challenge.",
+                MAX_BIND_ATTEMPTS
+            ),
+            retry_after: 0, // Indicates a new challenge is needed, not a wait
+        });
+    }
+
+    // Step 4: Verify challenge is not expired
     if challenge_record.is_expired() {
         return Err(AppError::BadRequest("Challenge has expired".to_string()));
     }
 
-    // Step 4: Verify challenge is not already used
+    // Step 5: Verify challenge is not already used
     if challenge_record.is_used() {
         return Err(AppError::BadRequest("Challenge has already been used".to_string()));
     }
 
-    // Step 5: Decode the challenge hex to bytes for signature verification
+    // Step 6: Decode the challenge hex to bytes for signature verification
     let challenge_bytes = hex::decode(&request.challenge)
         .map_err(|e| AppError::BadRequest(format!("Invalid challenge format: {}", e)))?;
 
-    // Step 6: Decode the base64 signature
+    // Step 7: Decode the base64 signature
     use base64::Engine;
     let signature_bytes = base64::engine::general_purpose::STANDARD
         .decode(&request.challenge_signature)
         .map_err(|e| AppError::BadRequest(format!("Invalid signature encoding: {}", e)))?;
 
-    // Step 7: Parse signature bytes into Signature struct
+    // Step 8: Parse signature bytes into Signature struct
     let signature_array: [u8; 64] = signature_bytes
         .try_into()
         .map_err(|_| AppError::BadRequest("Invalid signature length: expected 64 bytes".to_string()))?;
     let signature = Signature::from_bytes(&signature_array);
 
-    // Step 8: Verify the signature over the challenge bytes
-    verifying_key
-        .verify(&challenge_bytes, &signature)
-        .map_err(|_| AppError::BadRequest("Signature verification failed".to_string()))?;
+    // Step 9: Verify the signature over the challenge bytes
+    if let Err(_) = verifying_key.verify(&challenge_bytes, &signature) {
+        // Increment failed attempts counter
+        increment_failed_attempts(&pool, challenge_record.id).await?;
 
-    // Step 9: Check if DID is already bound to this user
+        let new_attempts = challenge_record.failed_attempts + 1;
+        if new_attempts >= MAX_BIND_ATTEMPTS {
+            return Err(AppError::TooManyRequests {
+                message: format!(
+                    "Challenge locked after {} failed attempts. Please request a new challenge.",
+                    MAX_BIND_ATTEMPTS
+                ),
+                retry_after: 0,
+            });
+        } else {
+            let remaining = MAX_BIND_ATTEMPTS - new_attempts;
+            return Err(AppError::BadRequest(format!(
+                "Signature verification failed. {} attempt(s) remaining.",
+                remaining
+            )));
+        }
+    }
+
+    // Step 10: Check if DID is already bound to this user
     let existing_binding: Option<DidBinding> = sqlx::query_as(
         r#"
         SELECT id, user_id, did, created_at, revoked_at
@@ -295,7 +344,7 @@ async fn bind_did(
         }
     }
 
-    // Step 10: Insert DID binding in a transaction
+    // Step 11: Insert DID binding in a transaction
     let mut tx = pool.begin().await
         .map_err(|e| AppError::Internal(format!("Failed to begin transaction: {}", e)))?;
 
@@ -537,5 +586,55 @@ mod tests {
         };
         assert!(!result.exceeded);
         assert_eq!(result.retry_after, 0);
+    }
+
+    #[test]
+    fn test_max_bind_attempts_constant() {
+        // Verify bind attempt limit is set to 3
+        assert_eq!(MAX_BIND_ATTEMPTS, 3);
+    }
+
+    #[test]
+    fn test_bind_attempt_remaining_calculation() {
+        // Test that remaining attempts are correctly calculated
+        for failed in 0..MAX_BIND_ATTEMPTS {
+            let remaining = MAX_BIND_ATTEMPTS - (failed + 1);
+            if failed + 1 >= MAX_BIND_ATTEMPTS {
+                assert_eq!(remaining, 0);
+            } else {
+                assert!(remaining > 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_locked_challenge_returns_429_message() {
+        // Verify the error message format for locked challenges
+        let message = format!(
+            "Challenge locked after {} failed attempts. Please request a new challenge.",
+            MAX_BIND_ATTEMPTS
+        );
+        assert!(message.contains("3 failed attempts"));
+        assert!(message.contains("new challenge"));
+    }
+
+    #[test]
+    fn test_failed_attempt_error_message() {
+        // Test error message format for failed attempts with remaining tries
+        let failed_attempts = 1;
+        let remaining = MAX_BIND_ATTEMPTS - (failed_attempts + 1);
+        let message = format!(
+            "Signature verification failed. {} attempt(s) remaining.",
+            remaining
+        );
+        assert!(message.contains("1 attempt(s) remaining"));
+
+        let failed_attempts = 2;
+        let remaining = MAX_BIND_ATTEMPTS - (failed_attempts + 1);
+        let message = format!(
+            "Signature verification failed. {} attempt(s) remaining.",
+            remaining
+        );
+        assert!(message.contains("0 attempt(s) remaining"));
     }
 }

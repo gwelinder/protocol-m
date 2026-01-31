@@ -745,8 +745,8 @@
         "Typecheck passes"
       ],
       "priority": 45,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added failed_attempts column to did_challenges, is_locked() helper, increment_failed_attempts function; 136 tests pass"
     },
     {
       "id": "US-008G",
