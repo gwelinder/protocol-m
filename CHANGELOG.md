@@ -423,6 +423,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Success state displaying submission endpoint and requirements
   - 9 new unit tests for accept bounty endpoint
   - TypeScript typecheck passes
+- US-016E-R: Implemented dispute creation endpoint:
+  - POST /api/v1/bounties/{id}/dispute endpoint for challenging approved submissions
+  - Migration 20260131000019 creates disputes table with dispute_status enum (pending, resolved, expired)
+  - Dispute, NewDispute, DisputeStatus, ResolutionOutcome model types with helpers
+  - 10% stake requirement from bounty reward (calculate_dispute_stake function)
+  - 7-day dispute window from submission creation (DISPUTE_WINDOW_DAYS constant)
+  - Stake escrow hold creation via create_dispute_stake_escrow function
+  - Validation: only approved submissions can be disputed
+  - Validation: prevents self-disputes (initiator != submitter)
+  - Validation: prevents multiple active disputes per submission (unique constraint)
+  - CreateDisputeRequest/Response types with camelCase JSON serialization
+  - 16 new unit tests for dispute validation and serialization
+  - 374 total server tests pass
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

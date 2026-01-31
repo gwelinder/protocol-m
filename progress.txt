@@ -1041,3 +1041,21 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - AcceptBountyModal manages three states: bind DID prompt, confirmation, and success with instructions
   - 357 total tests pass (348 server + 9 new accept bounty tests)
 ---
+
+## 2026-01-31 - US-016E-R
+- What was implemented: Dispute creation endpoint for challenging bounty submissions
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000019_create_disputes_table.sql` - New migration with dispute_status enum, disputes table with stake tracking and deadline
+  - `crates/openclaw-server/src/models/dispute.rs` - New Dispute, NewDispute, DisputeStatus, ResolutionOutcome models with helpers
+  - `crates/openclaw-server/src/models.rs` - Added dispute module and re-exports
+  - `crates/openclaw-server/src/routes/bounties.rs` - Added POST /api/v1/bounties/{id}/dispute endpoint with validation and stake escrow
+- **Learnings for future iterations:**
+  - Disputes require 10% stake of bounty reward, calculated via calculate_dispute_stake()
+  - 7-day dispute window from submission creation (DISPUTE_WINDOW_DAYS constant)
+  - Only approved submissions can be disputed (prevents frivolous disputes on pending work)
+  - Unique constraint prevents multiple active disputes per submission
+  - Stake is held in separate escrow_holds record linked via stake_escrow_id
+  - Self-disputes prevented (initiator_did != submitter_did)
+  - ResolutionOutcome enum: UpholdSubmission or RejectSubmission (for US-016F-R)
+  - 374 total tests pass (16 new dispute tests)
+---
