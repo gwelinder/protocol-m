@@ -45,3 +45,5 @@ openclaw-crypto = { path = "../openclaw-crypto" }
 
 [dev-dependencies]
 tokio-test = "0.4"
+tower = { version = "0.5", features = ["util"] }
+hex = "0.4"
