@@ -64,8 +64,17 @@ enum IdentityAction {
 
 #[derive(Subcommand)]
 enum ManifestAction {
-    /// Export contribution manifest
-    Export,
+    /// Export contribution manifest from signature files
+    Export {
+        /// Paths to signature files (.sig.json) to include in manifest
+        /// If not specified, scans ~/.openclaw/signatures/
+        #[arg(value_name = "SIG_FILE")]
+        paths: Vec<String>,
+
+        /// Output file path (defaults to manifest.json)
+        #[arg(short, long, default_value = "manifest.json")]
+        output: String,
+    },
     /// Import contribution manifest
     Import {
         /// Path to manifest file
@@ -248,13 +257,142 @@ fn truncate_did(did: &str) -> String {
 
 fn handle_manifest(action: ManifestAction) -> anyhow::Result<()> {
     match action {
-        ManifestAction::Export => {
-            println!("Manifest export placeholder");
-            Ok(())
-        }
+        ManifestAction::Export { paths, output } => handle_manifest_export(paths, &output),
         ManifestAction::Import { path } => {
             println!("Manifest import placeholder: {}", path);
             Ok(())
         }
     }
+}
+
+fn handle_manifest_export(paths: Vec<String>, output: &str) -> anyhow::Result<()> {
+    use colored::Colorize;
+    use std::path::Path;
+
+    // Load identity from ~/.openclaw/identity/
+    let identity = keystore::load_identity_info()?;
+
+    // Prompt for passphrase and decrypt private key
+    let passphrase = keystore::prompt_passphrase_single()?;
+    let signing_key = keystore::load_signing_key(&passphrase)?;
+
+    // Collect signature files to include
+    let sig_files = if paths.is_empty() {
+        // Scan ~/.openclaw/signatures/ for .sig.json files
+        let sig_dir = get_signatures_dir()?;
+        if !sig_dir.exists() {
+            return Err(anyhow::anyhow!(
+                "No signature files provided and {} does not exist.\n\
+                 Usage: openclaw manifest export <SIG_FILE>... [-o <OUTPUT>]",
+                sig_dir.display()
+            ));
+        }
+        scan_signature_files(&sig_dir)?
+    } else {
+        // Use provided paths
+        paths.iter().map(|p| Path::new(p).to_path_buf()).collect()
+    };
+
+    if sig_files.is_empty() {
+        return Err(anyhow::anyhow!(
+            "No signature files found. Provide .sig.json files as arguments."
+        ));
+    }
+
+    // Load and parse signature envelopes
+    let mut artifact_refs = Vec::new();
+    for sig_file in &sig_files {
+        let content = std::fs::read_to_string(sig_file)
+            .map_err(|e| anyhow::anyhow!("Failed to read '{}': {}", sig_file.display(), e))?;
+
+        let envelope: openclaw_crypto::SignatureEnvelopeV1 = serde_json::from_str(&content)
+            .map_err(|e| {
+                anyhow::anyhow!("Failed to parse '{}': {}", sig_file.display(), e)
+            })?;
+
+        // Convert envelope to artifact reference
+        artifact_refs.push(openclaw_crypto::ArtifactReference::from_envelope(&envelope));
+    }
+
+    // Get current timestamp
+    let timestamp = keystore::chrono_iso8601_now();
+
+    // Export manifest
+    let manifest_envelope = openclaw_crypto::export_manifest(
+        &signing_key,
+        identity.did.clone(),
+        artifact_refs,
+        timestamp,
+    )?;
+
+    // Write manifest to output file
+    let json = serde_json::to_string_pretty(&manifest_envelope)?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(output, &json)?;
+        std::fs::set_permissions(output, std::fs::Permissions::from_mode(0o644))?;
+    }
+
+    #[cfg(not(unix))]
+    {
+        std::fs::write(output, &json)?;
+    }
+
+    // Print success message
+    println!(
+        "{} Manifest exported successfully!",
+        "✓".green().bold()
+    );
+    println!();
+    println!("  Output:    {}", output);
+    println!("  Signer:    {}", truncate_did(&identity.did));
+    println!("  Artifacts: {}", sig_files.len());
+    println!();
+    println!("  Files included:");
+    for sig_file in &sig_files {
+        println!("    - {}", sig_file.display());
+    }
+
+    Ok(())
+}
+
+/// Get the default signatures directory path (~/.openclaw/signatures/)
+fn get_signatures_dir() -> anyhow::Result<std::path::PathBuf> {
+    #[cfg(unix)]
+    let home = std::env::var("HOME")
+        .map_err(|_| anyhow::anyhow!("HOME environment variable not set"))?;
+
+    #[cfg(windows)]
+    let home = std::env::var("USERPROFILE")
+        .map_err(|_| anyhow::anyhow!("USERPROFILE environment variable not set"))?;
+
+    Ok(std::path::PathBuf::from(home)
+        .join(".openclaw")
+        .join("signatures"))
+}
+
+/// Scan a directory for .sig.json files
+fn scan_signature_files(dir: &std::path::Path) -> anyhow::Result<Vec<std::path::PathBuf>> {
+    let mut sig_files = Vec::new();
+
+    for entry in std::fs::read_dir(dir)
+        .map_err(|e| anyhow::anyhow!("Failed to read directory '{}': {}", dir.display(), e))?
+    {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.ends_with(".sig.json") {
+                    sig_files.push(path);
+                }
+            }
+        }
+    }
+
+    // Sort by filename for consistent ordering
+    sig_files.sort();
+
+    Ok(sig_files)
 }
