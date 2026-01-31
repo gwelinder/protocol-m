@@ -1,11 +1,12 @@
-//! Artifact registration endpoints.
+//! Artifact registration and attribution endpoints.
 
 use axum::{
-    extract::State,
-    routing::post,
+    extract::{Path, Query, State},
+    routing::{get, post},
     Json, Router,
 };
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -30,7 +31,149 @@ pub struct RegisterArtifactResponse {
 pub fn router(pool: PgPool) -> Router {
     Router::new()
         .route("/", post(register_artifact))
+        .route("/{id}/attribution", get(get_attribution))
         .with_state(pool)
+}
+
+/// Query parameters for the attribution endpoint.
+#[derive(Debug, Deserialize)]
+pub struct AttributionQuery {
+    /// Depth of traversal (default 1, max 10).
+    #[serde(default = "default_depth")]
+    pub depth: u32,
+}
+
+fn default_depth() -> u32 {
+    1
+}
+
+/// Maximum depth for attribution queries.
+const MAX_ATTRIBUTION_DEPTH: u32 = 10;
+
+/// A parent artifact in the attribution graph.
+#[derive(Debug, Serialize)]
+pub struct AttributionNode {
+    /// The artifact ID.
+    pub artifact_id: Uuid,
+    /// The DID of the signer.
+    pub did: String,
+    /// Timestamp from the signature envelope.
+    pub timestamp: DateTime<Utc>,
+    /// Contribution description from metadata (if any).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// The depth level from the queried artifact (1 = direct parent, 2 = grandparent, etc.).
+    pub depth: u32,
+    /// Additional metadata from the artifact.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
+}
+
+/// Response for the attribution endpoint.
+#[derive(Debug, Serialize)]
+pub struct AttributionResponse {
+    /// The queried artifact ID.
+    pub artifact_id: Uuid,
+    /// List of parent artifacts with attribution information.
+    pub parents: Vec<AttributionNode>,
+    /// Maximum depth returned.
+    pub max_depth: u32,
+}
+
+/// GET /api/v1/artifacts/{id}/attribution
+///
+/// Returns the attribution graph for an artifact, showing all parent artifacts
+/// that this artifact is derived from.
+async fn get_attribution(
+    State(pool): State<PgPool>,
+    Path(id): Path<Uuid>,
+    Query(query): Query<AttributionQuery>,
+) -> Result<Json<AttributionResponse>, AppError> {
+    // Clamp depth to valid range
+    let depth = query.depth.clamp(1, MAX_ATTRIBUTION_DEPTH);
+
+    // Verify the artifact exists
+    let exists: Option<(Uuid,)> = sqlx::query_as("SELECT id FROM artifacts WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&pool)
+        .await?;
+
+    if exists.is_none() {
+        return Err(AppError::NotFound(format!("Artifact not found: {}", id)));
+    }
+
+    // Traverse the derivation graph up to the specified depth
+    let parents = traverse_attribution(&pool, id, depth).await?;
+
+    Ok(Json(AttributionResponse {
+        artifact_id: id,
+        parents,
+        max_depth: depth,
+    }))
+}
+
+/// Traverses the attribution graph recursively up to the specified depth.
+/// Returns parent artifacts ordered by depth (ascending) and timestamp (descending within each level).
+async fn traverse_attribution(
+    pool: &PgPool,
+    artifact_id: Uuid,
+    max_depth: u32,
+) -> Result<Vec<AttributionNode>, AppError> {
+    let mut result: Vec<AttributionNode> = Vec::new();
+    let mut current_level = vec![artifact_id];
+    let mut visited = std::collections::HashSet::new();
+    visited.insert(artifact_id);
+
+    for current_depth in 1..=max_depth {
+        if current_level.is_empty() {
+            break;
+        }
+
+        // Get all parents for the current level
+        let parents: Vec<(Uuid, String, DateTime<Utc>, serde_json::Value)> = sqlx::query_as(
+            r#"
+            SELECT a.id, a.did, a.timestamp, a.metadata
+            FROM artifacts a
+            JOIN artifact_derivations d ON a.id = d.derived_from_id
+            WHERE d.artifact_id = ANY($1)
+            ORDER BY a.timestamp DESC
+            LIMIT 100
+            "#,
+        )
+        .bind(&current_level)
+        .fetch_all(pool)
+        .await?;
+
+        let mut next_level = Vec::new();
+
+        for (parent_id, did, timestamp, metadata) in parents {
+            // Skip already visited artifacts (prevents cycles from appearing in output)
+            if !visited.insert(parent_id) {
+                continue;
+            }
+
+            // Extract description from metadata if present
+            let description = metadata
+                .get("description")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            result.push(AttributionNode {
+                artifact_id: parent_id,
+                did,
+                timestamp,
+                description,
+                depth: current_depth,
+                metadata: Some(metadata),
+            });
+
+            next_level.push(parent_id);
+        }
+
+        current_level = next_level;
+    }
+
+    Ok(result)
 }
 
 /// POST /api/v1/artifacts
@@ -720,5 +863,75 @@ mod tests {
         assert!(!visited.insert(id1)); // Second insert of same returns false
         assert!(visited.insert(id2)); // Different ID returns true
         assert_eq!(visited.len(), 2);
+    }
+
+    // Tests for attribution endpoint
+    #[test]
+    fn test_attribution_query_default_depth() {
+        let query: AttributionQuery = serde_json::from_str("{}").unwrap();
+        assert_eq!(query.depth, 1);
+    }
+
+    #[test]
+    fn test_attribution_query_custom_depth() {
+        let query: AttributionQuery = serde_json::from_str(r#"{"depth": 5}"#).unwrap();
+        assert_eq!(query.depth, 5);
+    }
+
+    #[test]
+    fn test_attribution_response_serialization() {
+        let response = AttributionResponse {
+            artifact_id: Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap(),
+            parents: vec![
+                AttributionNode {
+                    artifact_id: Uuid::parse_str("550e8400-e29b-41d4-a716-446655440001").unwrap(),
+                    did: "did:key:z6MkTest...".to_string(),
+                    timestamp: DateTime::parse_from_rfc3339("2026-01-31T10:00:00Z")
+                        .unwrap()
+                        .with_timezone(&Utc),
+                    description: Some("Initial contribution".to_string()),
+                    depth: 1,
+                    metadata: Some(serde_json::json!({"author": "Alice"})),
+                },
+            ],
+            max_depth: 3,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("550e8400-e29b-41d4-a716-446655440000"));
+        assert!(json.contains("parents"));
+        assert!(json.contains("max_depth"));
+        assert!(json.contains("did:key:z6MkTest..."));
+        assert!(json.contains("Initial contribution"));
+    }
+
+    #[test]
+    fn test_attribution_node_without_description() {
+        let node = AttributionNode {
+            artifact_id: Uuid::new_v4(),
+            did: "did:key:z6Mk...".to_string(),
+            timestamp: Utc::now(),
+            description: None,
+            depth: 1,
+            metadata: None,
+        };
+
+        let json = serde_json::to_string(&node).unwrap();
+        // description and metadata should be omitted when None
+        assert!(!json.contains("description"));
+        assert!(!json.contains("metadata"));
+    }
+
+    #[test]
+    fn test_max_attribution_depth_constant() {
+        assert_eq!(MAX_ATTRIBUTION_DEPTH, 10);
+    }
+
+    #[test]
+    fn test_depth_clamping() {
+        // Test that depth is clamped to valid range
+        assert_eq!(0_u32.clamp(1, MAX_ATTRIBUTION_DEPTH), 1);
+        assert_eq!(5_u32.clamp(1, MAX_ATTRIBUTION_DEPTH), 5);
+        assert_eq!(15_u32.clamp(1, MAX_ATTRIBUTION_DEPTH), 10);
     }
 }
