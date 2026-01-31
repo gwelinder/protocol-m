@@ -3608,17 +3608,18 @@
     {
       "id": "US-051B",
       "title": "Implement multi-AI response enhancement",
-      "description": "As Protocol M, I need multiple AI layers for authoritative responses.",
+      "description": "As Protocol M, I need multiple AI layers for authoritative responses with clear cost/capability hierarchy.",
       "acceptanceCriteria": [
-        "Use Claude for quick responses",
-        "Use Oracle GPT-5.2 Pro for deep analysis",
-        "Use Gemini for search-augmented context",
+        "Use Claude for quick responses and simple threads",
+        "Use Gemini 3 Pro Preview for deep analysis (superior context, cheaper)",
+        "Reserve Oracle GPT-5.2 Pro for existential PRD matters only",
         "Track which AI performs best per topic",
-        "Blend insights when appropriate"
+        "Blend insights when appropriate",
+        "Document cost savings from hierarchy"
       ],
       "priority": 182,
       "passes": false,
-      "notes": ""
+      "notes": "Gemini for engagement depth, Oracle only for PRD-level decisions"
     },
     {
       "id": "US-051C",

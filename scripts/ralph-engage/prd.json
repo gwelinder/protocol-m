@@ -184,13 +184,14 @@
     {
       "id": "ENG-013",
       "title": "Implement multi-AI response enhancement",
-      "description": "As the engagement agent, I need to use multiple AI layers for the best responses.",
+      "description": "As the engagement agent, I need to use multiple AI layers for the best responses, with clear hierarchy.",
       "acceptanceCriteria": [
-        "Use Claude (self) for quick responses",
-        "Use Oracle GPT-5.2 Pro for deep analysis",
-        "Use Gemini for search-augmented context",
+        "Use Claude (self) for quick responses and simple threads",
+        "Use Gemini 3 Pro Preview for deep analysis (superior context, cheaper)",
+        "Reserve Oracle GPT-5.2 Pro for existential PRD matters only",
         "Blend insights when appropriate",
-        "Track which AI layer performs best per topic"
+        "Track which AI layer performs best per topic",
+        "Document cost savings from Gemini vs Oracle usage"
       ],
       "priority": 13,
       "passes": false,

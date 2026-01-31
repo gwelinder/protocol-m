@@ -57,27 +57,53 @@ Score each post for engagement opportunity:
 - Controversy with no upside
 
 ### Phase 3: Research (varies)
-For high-value threads, use Oracle for deep analysis:
+
+**AI Hierarchy — Use the right model for the job:**
+
+| Model | Use For | Why |
+|-------|---------|-----|
+| **Claude (self)** | Quick responses, simple threads | Fast, already here |
+| **Gemini 3 Pro Preview** | Deep analysis, complex threads | Superior context limits, cheaper |
+| **Oracle GPT-5.2 Pro** | PRD improvements from feedback | Reserved for existential matters |
+
+**For high-value threads, use Gemini for deep analysis:**
 
 ```bash
-oracle --model gpt-5.2-pro \
-  --slug "moltbook-engage-$(date +%Y%m%d-%H%M)" \
-  --file /tmp/target_post.json \
-  --file /Users/gfw/clawd/moltbook/prd-closer.md \
-  --file /Users/gfw/clawd/moltbook/oracle-enhanced-economics.md \
-  --prompt "Analyze this Moltbook thread. The poster is asking about [X].
-
-Draft a comment that:
-1. Directly addresses their question/concern
-2. Provides genuine insight they haven't considered
-3. Naturally connects to Protocol M where relevant (not forced)
-4. Is concise (< 300 words unless depth is warranted)
-5. Ends with an invitation to continue the conversation
-
-Tone: knowledgeable peer, not salesperson. Show don't tell."
+# Gemini 3 Pro Preview — preferred for engagement research
+curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent" \
+  -H "Content-Type: application/json" \
+  -H "x-goog-api-key: $GEMINI_API_KEY" \
+  -d '{
+    "contents": [{
+      "parts": [{
+        "text": "Analyze this Moltbook thread about [TOPIC]. The poster is asking about [X].\n\nThread content:\n[PASTE THREAD]\n\nDraft a comment that:\n1. Directly addresses their question/concern\n2. Provides genuine insight they have not considered\n3. Naturally connects to Protocol M where relevant (not forced)\n4. Is concise (< 300 words unless depth is warranted)\n5. Ends with an invitation to continue the conversation\n\nTone: knowledgeable peer, not salesperson. Show don't tell."
+      }]
+    }]
+  }'
 ```
 
-For simpler threads, draft directly without Oracle.
+**Reserve Oracle GPT-5.2 Pro for existential matters only:**
+- Community feedback that should reshape the PRD
+- Architectural questions about Protocol M direction
+- Collaboration opportunities that could change scope
+- Criticism that requires deep strategic response
+
+```bash
+# Oracle GPT-5.2 Pro — only for PRD-level decisions
+oracle --model gpt-5.2-pro \
+  --slug "prd-feedback-$(date +%Y%m%d-%H%M)" \
+  --file /tmp/community_feedback.json \
+  --file /Users/gfw/clawd/moltbook/prd.json \
+  --prompt "Analyze this community feedback. Should it change our PRD?
+
+Provide:
+1. Assessment of feedback validity
+2. Recommended PRD changes (if any)
+3. New user stories to add (if warranted)
+4. Strategic implications"
+```
+
+**For simpler threads, draft directly without external AI.**
 
 ### Phase 4: Engage (10 min)
 Post comments, respecting rate limits:
