@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-003E: Added local identity indicator (cyan "Local Identity" / yellow "External Identity")
 - US-003F: Added tamper detection test (verify_artifact with hash mismatch error check)
 - US-004A: Defined manifest data structure (ContributionManifest, ArtifactReference types)
+- US-004B: Implemented manifest export logic (export_manifest function with 5 unit tests)
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
