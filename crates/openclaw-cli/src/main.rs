@@ -209,9 +209,19 @@ fn handle_verify(path: &str, sig_path: Option<&str>) -> anyhow::Result<()> {
             // Success - print green checkmark
             println!("{} {}", "✓".green().bold(), "Signature verified".green());
             println!();
+
+            // Check if signer matches local identity
+            let identity_indicator = match keystore::load_identity_info() {
+                Ok(local_identity) if local_identity.did == envelope.signer => {
+                    "(Local Identity)".cyan().to_string()
+                }
+                Ok(_) => "(External Identity)".yellow().to_string(),
+                Err(_) => "(No local identity)".dimmed().to_string(),
+            };
+
             // Truncate DID for readability (show first 20 chars + ... + last 8)
             let truncated_did = truncate_did(&envelope.signer);
-            println!("  Signer:    {}", truncated_did);
+            println!("  Signer:    {} {}", truncated_did, identity_indicator);
             println!("  Timestamp: {}", envelope.timestamp);
             println!("  File:      {}", envelope.artifact.name);
             Ok(())
