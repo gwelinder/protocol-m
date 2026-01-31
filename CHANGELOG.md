@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - US-001A: Created Rust workspace structure with `openclaw-crypto` and `openclaw-cli` crates
 - US-001B: Added core cryptographic dependencies (ed25519-dalek, serde_jcs, sha2)
+- US-001C: Defined signature envelope types (HashRef, ArtifactInfo, SignatureEnvelopeV1)
+- US-001D: Implemented SHA-256 hashing utility
+- US-001E: Implemented JCS canonicalization (RFC 8785)
+- US-001F: Implemented DID key derivation (did:key format)
+- US-001G: Implemented keypair generation with ed25519-dalek and OsRng
+- US-001H: Added age encryption dependency to CLI crate for private key protection
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
