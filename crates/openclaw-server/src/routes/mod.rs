@@ -1,5 +1,6 @@
 //! API routes for OpenClaw server.
 
+pub mod agents;
 pub mod approvals;
 pub mod artifacts;
 pub mod bounties;
@@ -21,6 +22,7 @@ pub fn create_router(pool: PgPool) -> Router {
 /// Creates the v1 API routes.
 fn api_v1_routes(pool: PgPool) -> Router {
     Router::new()
+        .nest("/agents", agents::router(pool.clone()))
         .nest("/approvals", approvals::router(pool.clone()))
         .nest("/artifacts", artifacts::router(pool.clone()))
         .nest("/bounties", bounties::router(pool.clone()))

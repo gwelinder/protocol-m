@@ -84,6 +84,20 @@ enum Commands {
         #[arg(short = 'y', long)]
         yes: bool,
     },
+    /// Emergency stop - halt all agent operations immediately
+    EmergencyStop {
+        /// Server URL for the API
+        #[arg(long, default_value = "http://localhost:3000")]
+        server: String,
+
+        /// Reason for emergency stop
+        #[arg(short, long)]
+        reason: Option<String>,
+
+        /// Skip confirmation prompt (DANGEROUS)
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -141,6 +155,7 @@ fn main() {
         Commands::Policy { action } => handle_policy(action),
         Commands::Approve { request_id, server, yes } => handle_approve(&request_id, &server, yes),
         Commands::Reject { request_id, server, reason, yes } => handle_reject(&request_id, &server, reason.as_deref(), yes),
+        Commands::EmergencyStop { server, reason, yes } => handle_emergency_stop(&server, reason.as_deref(), yes),
     };
 
     if let Err(e) = result {
@@ -979,6 +994,139 @@ fn handle_reject(request_id: &str, server_url: &str, reason: Option<&str>, skip_
         println!();
         println!("  Bounty ID: {} (cancelled)", bounty_id);
     }
+
+    Ok(())
+}
+
+/// Request body for POST /api/v1/agents/emergency-stop
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EmergencyStopRequest {
+    operator_did: String,
+    reason: Option<String>,
+}
+
+/// Response from POST /api/v1/agents/emergency-stop
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EmergencyStopApiResponse {
+    success: bool,
+    suspension_id: String,
+    message: String,
+    bounties_cancelled: i64,
+    approval_requests_cancelled: i64,
+    escrow_refunded: String,
+}
+
+fn handle_emergency_stop(server_url: &str, reason: Option<&str>, skip_confirmation: bool) -> anyhow::Result<()> {
+    use colored::Colorize;
+
+    // Load local identity to get the operator DID
+    let identity = keystore::load_identity_info()?;
+
+    // Display warning
+    println!();
+    println!("{}", "╔═══════════════════════════════════════════════════════════════╗".red().bold());
+    println!("{}", "║                    ⚠️  EMERGENCY STOP  ⚠️                      ║".red().bold());
+    println!("{}", "╠═══════════════════════════════════════════════════════════════╣".red().bold());
+    println!("{}", "║  This action will IMMEDIATELY:                                ║".red());
+    println!("{}", "║                                                               ║".red());
+    println!("{}", "║  • Suspend your agent identity                                ║".red());
+    println!("{}", "║  • Cancel ALL pending approval requests                       ║".red());
+    println!("{}", "║  • Cancel ALL open bounties you posted                        ║".red());
+    println!("{}", "║  • Refund all escrow holds to your account                    ║".red());
+    println!("{}", "║  • Prevent any further operations until resumed               ║".red());
+    println!("{}", "║                                                               ║".red());
+    println!("{}", "║  This action is LOGGED and AUDITABLE.                         ║".red());
+    println!("{}", "╚═══════════════════════════════════════════════════════════════╝".red().bold());
+    println!();
+    println!("  Your DID: {}", truncate_did(&identity.did));
+    println!();
+
+    // Prompt for reason if not provided
+    let stop_reason = if let Some(r) = reason {
+        Some(r.to_string())
+    } else if !skip_confirmation {
+        print!("Enter reason for emergency stop (optional, press Enter to skip): ");
+        std::io::Write::flush(&mut std::io::stdout())?;
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        let input = input.trim();
+        if input.is_empty() {
+            None
+        } else {
+            Some(input.to_string())
+        }
+    } else {
+        None
+    };
+
+    // Prompt for confirmation unless --yes flag is set
+    if !skip_confirmation {
+        println!();
+        print!("{}", "Type 'STOP' to confirm emergency stop: ".red().bold());
+        std::io::Write::flush(&mut std::io::stdout())?;
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        let input = input.trim();
+
+        if input != "STOP" {
+            println!();
+            println!("{}", "Emergency stop cancelled.".yellow());
+            return Ok(());
+        }
+    }
+
+    println!();
+    println!("Initiating emergency stop...");
+
+    // POST to emergency-stop endpoint
+    let stop_url = format!("{}/api/v1/agents/emergency-stop", server_url.trim_end_matches('/'));
+    let stop_body = EmergencyStopRequest {
+        operator_did: identity.did.clone(),
+        reason: stop_reason.clone(),
+    };
+
+    let response = ureq::post(&stop_url)
+        .set("Content-Type", "application/json")
+        .send_json(&stop_body)
+        .map_err(|e| anyhow::anyhow!("Failed to execute emergency stop: {}", e))?;
+
+    if response.status() != 200 {
+        let status = response.status();
+        let body = response.into_string().unwrap_or_default();
+        return Err(anyhow::anyhow!("Emergency stop failed with status {}: {}", status, body));
+    }
+
+    let stop_response: EmergencyStopApiResponse = response.into_json()
+        .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
+
+    if !stop_response.success {
+        return Err(anyhow::anyhow!("Emergency stop failed: {}", stop_response.message));
+    }
+
+    println!();
+    println!("{}", "╔═══════════════════════════════════════════════════════════════╗".red().bold());
+    println!("{}", "║              AGENT SUSPENDED SUCCESSFULLY                     ║".red().bold());
+    println!("{}", "╚═══════════════════════════════════════════════════════════════╝".red().bold());
+    println!();
+    println!("  Suspension ID: {}", stop_response.suspension_id);
+    println!();
+    println!("  {}", "Actions taken:".bold());
+    println!("    • Bounties cancelled:          {}", stop_response.bounties_cancelled);
+    println!("    • Approval requests cancelled: {}", stop_response.approval_requests_cancelled);
+    println!("    • Escrow refunded:             {} M-credits", stop_response.escrow_refunded);
+
+    if let Some(r) = &stop_reason {
+        println!();
+        println!("  Reason: {}", r);
+    }
+
+    println!();
+    println!("  {}", "Your agent is now SUSPENDED.".red().bold());
+    println!("  To resume operations, use: {}", "openclaw resume".cyan());
 
     Ok(())
 }
