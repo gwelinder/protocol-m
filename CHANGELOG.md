@@ -148,6 +148,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Stores envelope JSON, verified_did, and verification_status
   - Returns post with verification status in response
 
+#### Verified Post UI (US-011A to US-011C) — Frontend Display
+- US-011A: Created VerifiedBadge component with:
+  - Green checkmark + "Verified" text for valid_bound status
+  - "Signed" text (no checkmark) for valid_unbound status
+  - Nothing rendered for none or invalid status
+  - Hover tooltip showing truncated signer DID
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation

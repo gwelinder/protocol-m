@@ -875,8 +875,8 @@
         "Typecheck passes"
       ],
       "priority": 53,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created VerifiedBadge component in web/src/components/VerifiedBadge.tsx; shows green checkmark + 'Verified' for valid_bound, 'Signed' text for valid_unbound, nothing for none/invalid; includes hover tooltip with truncated signer DID; typecheck passes"
     },
     {
       "id": "US-011B",
