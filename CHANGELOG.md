@@ -367,6 +367,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - allocate_with_provider() placeholder for provider API integration
   - 302 total tests pass
 
+#### Balance Check Endpoint (US-015D) — Account Balance API
+- US-015D: Created GET /api/v1/credits/balance endpoint for checking account balances:
+  - BalanceRequest takes user_id (extracted from auth in production)
+  - BalanceResponse returns did, balance, promo_balance, total
+  - TransactionRecord type for recent transactions with event_type, amount, description
+  - get_user_bound_did() requires DID binding before balance queries
+  - get_account_balances() returns main and promo balances (or 0, 0 if no account)
+  - get_recent_transactions() fetches last 10 transactions for DID
+  - Uses query params (GET) via axum::extract::Query
+  - 311 total tests pass (10 new balance tests)
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation

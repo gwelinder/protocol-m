@@ -959,3 +959,16 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - US-015C was implemented as dependency for US-015B since the endpoint requires the receipts table
   - 302 total tests pass (15 new redemption tests)
 ---
+
+## 2026-01-31 - US-015D
+- What was implemented: Credit balance check endpoint GET /api/v1/credits/balance
+- Files changed:
+  - `crates/openclaw-server/src/routes/credits.rs` - Added get_balance endpoint, BalanceRequest/BalanceResponse/TransactionRecord types, get_user_bound_did/get_account_balances/get_recent_transactions helper functions, 10 unit tests
+- **Learnings for future iterations:**
+  - Use get_user_bound_did pattern to require DID binding before account operations
+  - Query recent transactions with ORDER BY created_at DESC LIMIT 10 for efficient pagination
+  - Use WHERE from_did = $1 OR to_did = $1 to get all transactions involving a DID (both sent and received)
+  - TransactionRecord uses skip_serializing_if for optional description field
+  - Balance endpoint uses query params (GET) not request body - use axum::extract::Query
+  - 311 total tests pass (10 new balance endpoint tests)
+---

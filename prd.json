@@ -1228,8 +1228,8 @@
         "Typecheck passes"
       ],
       "priority": 74,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented GET /api/v1/credits/balance endpoint with get_user_bound_did for DID lookup, get_account_balances for main/promo balances, get_recent_transactions for last 10 transactions; added BalanceRequest/BalanceResponse/TransactionRecord types; 10 new unit tests for serialization and response formatting"
     },
     {
       "id": "US-016A",
