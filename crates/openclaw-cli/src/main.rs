@@ -54,6 +54,19 @@ enum Commands {
         #[command(subcommand)]
         action: PolicyAction,
     },
+    /// Approve an approval request
+    Approve {
+        /// The approval request ID (UUID)
+        request_id: String,
+
+        /// Server URL for the API
+        #[arg(long, default_value = "http://localhost:3000")]
+        server: String,
+
+        /// Skip confirmation prompt
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -109,6 +122,7 @@ fn main() {
         Commands::Verify { path, sig } => handle_verify(&path, sig.as_deref()),
         Commands::Manifest { action } => handle_manifest(action),
         Commands::Policy { action } => handle_policy(action),
+        Commands::Approve { request_id, server, yes } => handle_approve(&request_id, &server, yes),
     };
 
     if let Err(e) = result {
@@ -553,4 +567,206 @@ fn get_openclaw_dir() -> anyhow::Result<std::path::PathBuf> {
         .map_err(|_| anyhow::anyhow!("USERPROFILE environment variable not set"))?;
 
     Ok(std::path::PathBuf::from(home).join(".openclaw"))
+}
+
+/// Response from GET /api/v1/approvals/{id}
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ApprovalRequestResponse {
+    id: String,
+    operator_did: String,
+    requester_did: String,
+    action_type: String,
+    amount: Option<String>,
+    status: String,
+    expires_at: String,
+    is_expired: bool,
+    bounty: Option<BountyDetails>,
+    metadata: serde_json::Value,
+}
+
+/// Bounty details in approval request response
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BountyDetails {
+    id: String,
+    title: String,
+    description: String,
+    reward_credits: String,
+    closure_type: String,
+    status: String,
+}
+
+/// Request body for POST /api/v1/approvals/{id}/approve
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ApproveRequest {
+    operator_did: String,
+    reason: Option<String>,
+}
+
+/// Response from POST /api/v1/approvals/{id}/approve
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ApproveApiResponse {
+    success: bool,
+    approval_request_id: String,
+    message: String,
+    bounty_id: Option<String>,
+    escrow_id: Option<String>,
+    ledger_id: Option<String>,
+}
+
+fn handle_approve(request_id: &str, server_url: &str, skip_confirmation: bool) -> anyhow::Result<()> {
+    use colored::Colorize;
+
+    // Parse request ID as UUID to validate format
+    let _uuid = uuid::Uuid::parse_str(request_id)
+        .map_err(|_| anyhow::anyhow!("Invalid request ID format. Expected UUID."))?;
+
+    // Load local identity to verify we're the operator
+    let identity = keystore::load_identity_info()?;
+
+    println!("Fetching approval request {}...", request_id);
+    println!();
+
+    // Fetch approval request details from server
+    let get_url = format!("{}/api/v1/approvals/{}", server_url.trim_end_matches('/'), request_id);
+    let response = ureq::get(&get_url)
+        .call()
+        .map_err(|e| anyhow::anyhow!("Failed to fetch approval request: {}", e))?;
+
+    if response.status() != 200 {
+        let status = response.status();
+        let body = response.into_string().unwrap_or_default();
+        return Err(anyhow::anyhow!("Server returned error {}: {}", status, body));
+    }
+
+    let approval_request: ApprovalRequestResponse = response.into_json()
+        .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
+
+    // Verify operator DID matches local identity
+    if approval_request.operator_did != identity.did {
+        eprintln!("{}", "✗ Not authorized".red().bold());
+        eprintln!();
+        eprintln!("  This approval request is for operator:");
+        eprintln!("    {}", truncate_did(&approval_request.operator_did));
+        eprintln!();
+        eprintln!("  Your identity is:");
+        eprintln!("    {}", truncate_did(&identity.did));
+        return Err(anyhow::anyhow!("This approval request belongs to a different operator"));
+    }
+
+    // Check if request is still pending
+    if approval_request.status != "pending" {
+        return Err(anyhow::anyhow!(
+            "Approval request is not pending (status: {})",
+            approval_request.status
+        ));
+    }
+
+    // Check if request has expired
+    if approval_request.is_expired {
+        return Err(anyhow::anyhow!("Approval request has expired"));
+    }
+
+    // Display approval request details
+    println!("{}", "Approval Request Details".bold().cyan());
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!();
+    println!("  Request ID:  {}", request_id);
+    println!("  Action Type: {}", approval_request.action_type.to_uppercase());
+    println!("  Status:      {}", approval_request.status);
+    println!("  Expires At:  {}", approval_request.expires_at);
+    println!();
+    println!("  Requester:   {}", truncate_did(&approval_request.requester_did));
+    println!("  Operator:    {} {}", truncate_did(&approval_request.operator_did), "(you)".green());
+
+    if let Some(amount) = &approval_request.amount {
+        println!();
+        println!("  Amount:      {} M-credits", amount);
+    }
+
+    // Display bounty details if present
+    if let Some(bounty) = &approval_request.bounty {
+        println!();
+        println!("{}", "Bounty Details".bold().yellow());
+        println!("──────────────────────────────────────────────────");
+        println!();
+        println!("  Title:       {}", bounty.title);
+        println!("  Reward:      {} M-credits", bounty.reward_credits);
+        println!("  Closure:     {}", bounty.closure_type);
+        println!("  Status:      {}", bounty.status);
+        println!();
+        println!("  Description:");
+        for line in bounty.description.lines().take(5) {
+            println!("    {}", line);
+        }
+        if bounty.description.lines().count() > 5 {
+            println!("    ...");
+        }
+    }
+
+    println!();
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!();
+
+    // Prompt for confirmation unless --yes flag is set
+    if !skip_confirmation {
+        print!("Do you want to approve this request? [y/N]: ");
+        std::io::Write::flush(&mut std::io::stdout())?;
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        let input = input.trim().to_lowercase();
+
+        if input != "y" && input != "yes" {
+            println!();
+            println!("{}", "Approval cancelled.".yellow());
+            return Ok(());
+        }
+    }
+
+    println!();
+    println!("Approving request...");
+
+    // POST to approve the request
+    let approve_url = format!("{}/api/v1/approvals/{}/approve", server_url.trim_end_matches('/'), request_id);
+    let approve_body = ApproveRequest {
+        operator_did: identity.did.clone(),
+        reason: None,
+    };
+
+    let response = ureq::post(&approve_url)
+        .set("Content-Type", "application/json")
+        .send_json(&approve_body)
+        .map_err(|e| anyhow::anyhow!("Failed to approve request: {}", e))?;
+
+    if response.status() != 200 {
+        let status = response.status();
+        let body = response.into_string().unwrap_or_default();
+        return Err(anyhow::anyhow!("Approval failed with status {}: {}", status, body));
+    }
+
+    let approve_response: ApproveApiResponse = response.into_json()
+        .map_err(|e| anyhow::anyhow!("Failed to parse approval response: {}", e))?;
+
+    if !approve_response.success {
+        return Err(anyhow::anyhow!("Approval failed: {}", approve_response.message));
+    }
+
+    println!();
+    println!("{} {}", "✓".green().bold(), "Approval successful!".green());
+    println!();
+    println!("  {}", approve_response.message);
+
+    if let Some(bounty_id) = &approve_response.bounty_id {
+        println!();
+        println!("  Bounty ID:  {}", bounty_id);
+    }
+    if let Some(escrow_id) = &approve_response.escrow_id {
+        println!("  Escrow ID:  {}", escrow_id);
+    }
+
+    Ok(())
 }
