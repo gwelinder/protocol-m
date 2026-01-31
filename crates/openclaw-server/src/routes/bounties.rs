@@ -871,52 +871,34 @@ async fn release_escrow(
 /// - requester: 1.0x (single approver)
 ///
 /// Base reputation is calculated as: reward_credits * 0.1 * closure_type_weight
-///
-/// Note: This is a basic implementation. Full reputation system with decay
-/// and m_reputation table is implemented in US-016A.
 async fn mint_reputation_for_submission(
     pool: &PgPool,
     recipient_did: &str,
     bounty: &Bounty,
-) -> Result<(), AppError> {
-    // Calculate reputation weight based on closure type
-    let weight = match bounty.closure_type {
-        BountyClosureType::Tests => 1.5,
-        BountyClosureType::Quorum => 1.2,
-        BountyClosureType::Requester => 1.0,
-    };
+    submission_id: Option<Uuid>,
+) -> Result<BigDecimal, AppError> {
+    use crate::routes::reputation::{mint_reputation, BASE_REPUTATION_RATE};
 
-    // Base reputation = 10% of reward credits * weight
-    // For now, we just record it in the ledger metadata until m_reputation table exists
-    let base_rep_float = bounty.reward_credits.to_string().parse::<f64>().unwrap_or(0.0);
-    let reputation_amount = base_rep_float * 0.1 * weight;
+    // Calculate base reputation = 10% of reward credits
+    let base_rep = &bounty.reward_credits
+        * BigDecimal::try_from(BASE_REPUTATION_RATE)
+            .map_err(|_| AppError::Internal("Invalid base rate".to_string()))?;
 
-    // Record reputation mint in ledger (as metadata for now)
-    // This creates an audit trail that can be used when m_reputation table is implemented
-    let metadata = json!({
-        "bounty_id": bounty.id.to_string(),
-        "closure_type": format!("{:?}", bounty.closure_type).to_lowercase(),
-        "weight": weight,
-        "reputation_amount": reputation_amount,
-        "reason": "bounty_completion_reputation"
-    });
-
-    // For now, we use a special "reputation" event type annotation in metadata
-    // since the m_reputation table doesn't exist yet (US-016A)
-    // We record it as a 0-amount mint with reputation info in metadata
-    sqlx::query(
-        r#"
-        INSERT INTO m_credits_ledger (event_type, from_did, to_did, amount, metadata)
-        VALUES ('mint', NULL, $1, 0, $2)
-        "#,
+    // Mint reputation with closure type weighting
+    let reason = format!("Bounty completion: {}", bounty.title);
+    let new_total = mint_reputation(
+        pool,
+        recipient_did,
+        base_rep,
+        &reason,
+        bounty.closure_type,
+        None, // reviewer_credibility (used for quorum reviewers)
+        Some(bounty.id),
+        submission_id,
     )
-    .bind(recipient_did)
-    .bind(&metadata)
-    .execute(pool)
-    .await
-    .map_err(|e| AppError::Internal(format!("Failed to record reputation: {}", e)))?;
+    .await?;
 
-    Ok(())
+    Ok(new_total)
 }
 
 /// Registers a submission artifact in ClawdHub and links derivations.
@@ -1202,7 +1184,7 @@ async fn submit_bounty(
                 release_escrow(&pool, bounty_id, &submitter_did).await?;
 
                 // Mint reputation for the submitter
-                mint_reputation_for_submission(&pool, &submitter_did, &bounty).await?;
+                let _new_rep = mint_reputation_for_submission(&pool, &submitter_did, &bounty, Some(submission.id)).await?;
 
                 // Register artifact in ClawdHub and create derivation links
                 register_submission_artifact(&pool, submission.id, &bounty, &envelope).await?;

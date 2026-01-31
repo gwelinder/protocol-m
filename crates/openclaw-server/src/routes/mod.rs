@@ -6,6 +6,7 @@ pub mod credits;
 pub mod identity;
 pub mod posts;
 pub mod profile;
+pub mod reputation;
 
 use axum::Router;
 use sqlx::PgPool;

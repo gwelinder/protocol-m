@@ -10,9 +10,11 @@ pub mod did_challenge;
 pub mod escrow_hold;
 pub mod m_credits_account;
 pub mod m_credits_ledger;
+pub mod m_reputation;
 pub mod post;
 pub mod purchase_invoice;
 pub mod redemption_receipt;
+pub mod reputation_event;
 
 pub use artifact::{Artifact, NewArtifact};
 pub use artifact_derivation::{ArtifactDerivation, NewArtifactDerivation};
@@ -27,3 +29,8 @@ pub use m_credits_ledger::{MCreditsEventType, MCreditsLedger, NewMCreditsLedger}
 pub use post::{NewPost, Post, VerificationStatus};
 pub use purchase_invoice::{InvoiceStatus, NewPurchaseInvoice, PaymentProvider, PurchaseInvoice};
 pub use redemption_receipt::{NewRedemptionReceipt, RedemptionReceipt};
+pub use m_reputation::{MReputation, NewMReputation};
+pub use reputation_event::{
+    closure_type_to_weight, NewReputationEvent, ReputationEvent, ReputationEventType,
+    WEIGHT_QUORUM, WEIGHT_REQUESTER, WEIGHT_TESTS,
+};
