@@ -105,6 +105,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-008G: Tests marked #[ignore] requiring PostgreSQL database
 - US-008G: Run with: `cargo test --test did_binding_integration -- --ignored`
 
+#### User Profile DID Integration (US-009A) — Profile Query
+- US-009A: Created GET /api/v1/profile/{user_id}/dids endpoint for retrieving bound DIDs
+- US-009A: Returns array of BoundDid objects with did and createdAt fields
+- US-009A: Filters revoked bindings (WHERE revoked_at IS NULL)
+- US-009A: Orders by created_at DESC (newest first)
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation

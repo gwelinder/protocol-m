@@ -777,8 +777,8 @@
         "Typecheck passes"
       ],
       "priority": 47,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created GET /api/v1/profile/{user_id}/dids endpoint with BoundDid and ProfileResponse types; 140 tests pass"
     },
     {
       "id": "US-009B",
