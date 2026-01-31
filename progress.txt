@@ -1078,3 +1078,21 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - Escrow may already be released from auto-approval, handle case gracefully with clear error
   - 392 server tests pass (18 new dispute resolution tests), 466 total tests across all crates
 ---
+
+## 2026-01-31 - US-017A
+- What was implemented: Policy file JSON schema for controlling agent spending limits and approval workflows
+- Files changed:
+  - `fixtures/policy.schema.json` - JSON Schema 2020-12 for policy files with comprehensive field definitions
+  - `docs/POLICY.md` - Full documentation with examples and workflow explanation
+- **Learnings for future iterations:**
+  - JSON Schema 2020-12 used for modern schema validation features
+  - Policy fields: version (required "1.0"), max_spend_per_day, max_spend_per_bounty, allowed_delegates (array with DID pattern validation), approval_tiers (threshold-based approval rules with notification channels)
+  - DID pattern validation regex: `^did:key:z[1-9A-HJ-NP-Za-km-z]+$` for Base58BTC multibase format
+  - approval_tiers support: threshold, require_approval, approvers, timeout_hours, notification_channels (email/webhook/slack)
+  - emergency_contact field for kill switch notifications
+  - enabled flag for disabling policy enforcement
+  - Schema includes examples for minimal, conservative, and production policies
+  - Documentation placed in new docs/ directory for project documentation
+  - No Rust code changes needed for schema definition - validation logic comes in US-017B
+  - 392 server tests pass; typecheck passes
+---

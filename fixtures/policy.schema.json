@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://protocol-m.dev/schemas/policy.schema.json",
+  "title": "Protocol M Policy File",
+  "description": "Configuration policy for controlling agent spending limits, delegation, and approval tiers in Protocol M.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Policy schema version",
+      "const": "1.0"
+    },
+    "max_spend_per_day": {
+      "type": "number",
+      "description": "Maximum credits that can be spent in a 24-hour rolling window",
+      "minimum": 0,
+      "default": 1000
+    },
+    "max_spend_per_bounty": {
+      "type": "number",
+      "description": "Maximum credits that can be spent on a single bounty",
+      "minimum": 0,
+      "default": 500
+    },
+    "allowed_delegates": {
+      "type": "array",
+      "description": "DIDs that are allowed to act on behalf of this identity",
+      "items": {
+        "type": "string",
+        "pattern": "^did:key:z[1-9A-HJ-NP-Za-km-z]+$",
+        "description": "A valid did:key DID in Base58BTC multibase format"
+      },
+      "uniqueItems": true,
+      "default": []
+    },
+    "approval_tiers": {
+      "type": "array",
+      "description": "Thresholds that require human/operator approval before proceeding",
+      "items": {
+        "type": "object",
+        "properties": {
+          "threshold": {
+            "type": "number",
+            "description": "Credit amount threshold that triggers this tier",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "require_approval": {
+            "type": "boolean",
+            "description": "Whether approval is required when this threshold is exceeded",
+            "default": true
+          },
+          "approvers": {
+            "type": "array",
+            "description": "DIDs authorized to approve requests at this tier (empty = owner only)",
+            "items": {
+              "type": "string",
+              "pattern": "^did:key:z[1-9A-HJ-NP-Za-km-z]+$"
+            },
+            "uniqueItems": true,
+            "default": []
+          },
+          "timeout_hours": {
+            "type": "integer",
+            "description": "Hours to wait for approval before auto-rejecting (0 = no timeout)",
+            "minimum": 0,
+            "default": 24
+          },
+          "notification_channels": {
+            "type": "array",
+            "description": "Channels to notify when approval is required",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["email", "webhook", "slack"],
+                  "description": "Notification channel type"
+                },
+                "target": {
+                  "type": "string",
+                  "description": "Target address/URL for the notification"
+                }
+              },
+              "required": ["type", "target"]
+            },
+            "default": []
+          }
+        },
+        "required": ["threshold"],
+        "additionalProperties": false
+      },
+      "default": [
+        {
+          "threshold": 100,
+          "require_approval": true,
+          "approvers": [],
+          "timeout_hours": 24,
+          "notification_channels": []
+        }
+      ]
+    },
+    "emergency_contact": {
+      "type": "object",
+      "description": "Contact information for emergency stop notifications",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Email address for emergency notifications"
+        },
+        "webhook": {
+          "type": "string",
+          "format": "uri",
+          "description": "Webhook URL for emergency notifications"
+        }
+      },
+      "additionalProperties": false
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "Whether policy enforcement is active (false = no restrictions)",
+      "default": true
+    }
+  },
+  "required": ["version"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "version": "1.0",
+      "max_spend_per_day": 500,
+      "max_spend_per_bounty": 100,
+      "allowed_delegates": [
+        "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+      ],
+      "approval_tiers": [
+        {
+          "threshold": 50,
+          "require_approval": true,
+          "approvers": [],
+          "timeout_hours": 24,
+          "notification_channels": [
+            {
+              "type": "email",
+              "target": "operator@example.com"
+            }
+          ]
+        },
+        {
+          "threshold": 200,
+          "require_approval": true,
+          "approvers": [
+            "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+          ],
+          "timeout_hours": 48,
+          "notification_channels": [
+            {
+              "type": "email",
+              "target": "operator@example.com"
+            },
+            {
+              "type": "webhook",
+              "target": "https://hooks.example.com/approval"
+            }
+          ]
+        }
+      ],
+      "emergency_contact": {
+        "email": "emergency@example.com",
+        "webhook": "https://hooks.example.com/emergency"
+      },
+      "enabled": true
+    }
+  ]
+}

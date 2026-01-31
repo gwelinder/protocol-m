@@ -449,6 +449,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 18 new unit tests for dispute resolution
   - 392 total server tests pass
 
+#### Policy & Approval Infrastructure (US-017A to US-019C) — In Progress
+- US-017A: Defined policy file JSON schema:
+  - Created fixtures/policy.schema.json with JSON Schema 2020-12
+  - Fields: version, max_spend_per_day, max_spend_per_bounty, allowed_delegates, approval_tiers
+  - approval_tiers support: threshold, require_approval, approvers, timeout_hours, notification_channels
+  - DID pattern validation regex for Base58BTC multibase format
+  - emergency_contact field for kill switch notifications
+  - Comprehensive docs/POLICY.md with examples (minimal, conservative, production)
+  - No Rust changes needed - validation logic in US-017B
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation

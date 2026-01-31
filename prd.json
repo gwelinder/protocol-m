@@ -1343,8 +1343,8 @@
         "Typecheck passes"
       ],
       "priority": 81,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created fixtures/policy.schema.json with JSON Schema 2020-12; fields include version, max_spend_per_day, max_spend_per_bounty, allowed_delegates (with DID pattern validation), approval_tiers (with threshold, require_approval, approvers, timeout_hours, notification_channels), emergency_contact, enabled; comprehensive docs/POLICY.md with examples; 392 tests pass"
     },
     {
       "id": "US-017B",
