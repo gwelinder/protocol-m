@@ -1,0 +1,30 @@
+{
+  "comment": "Protocol M Phase 1 - Canonical Golden Test Vector",
+  "warning": "CI MUST fail if implementation produces different values. This is the single source of truth.",
+  "seed_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  "public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+  "did": "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw",
+  "file_bytes_utf8": "hello world\n",
+  "file_size": 12,
+  "sha256_hex": "a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447",
+  "timestamp": "2026-01-30T00:00:00Z",
+  "artifact_name": "hello.txt",
+  "envelope": {
+    "version": "1.0",
+    "type": "signature-envelope",
+    "algo": "ed25519",
+    "signer": "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw",
+    "timestamp": "2026-01-30T00:00:00Z",
+    "hash": {
+      "algo": "sha-256",
+      "value": "a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447"
+    },
+    "artifact": {
+      "name": "hello.txt",
+      "size": 12
+    },
+    "signature": "9tLraZlxpEKmIXc1CrG7PD5zbzxaKtOszC8+aVX2sSpIQ2bLb1SCSX/sV6ZpNt3ybeNp4RoQd7XpsjeLewKAAA=="
+  },
+  "canonical_jcs": "{\"algo\":\"ed25519\",\"artifact\":{\"name\":\"hello.txt\",\"size\":12},\"hash\":{\"algo\":\"sha-256\",\"value\":\"a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447\"},\"signature\":\"\",\"signer\":\"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw\",\"timestamp\":\"2026-01-30T00:00:00Z\",\"type\":\"signature-envelope\",\"version\":\"1.0\"}",
+  "signature_base64": "9tLraZlxpEKmIXc1CrG7PD5zbzxaKtOszC8+aVX2sSpIQ2bLb1SCSX/sV6ZpNt3ybeNp4RoQd7XpsjeLewKAAA=="
+}

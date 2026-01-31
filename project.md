@@ -14,11 +14,11 @@ hello world
 ```
 
 **SHA-256 Hash:**
-`a948904f2f0f479b8f8564cbf12dac6b0e89139886364121334469a4744d0f6f`
+`a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447`
 
 **Canonicalized Envelope (JCS):**
 ```json
-{"algo":"ed25519","artifact":{"name":"hello.txt","size":12},"createdAt":"2026-01-30T00:00:00Z","did":"did:key:z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp","hash":{"algo":"sha256","value":"a948904f2f0f479b8f8564cbf12dac6b0e89139886364121334469a4744d0f6f"},"metadata":{},"type":"artifact_signature","version":"m1"}
+{"algo":"ed25519","artifact":{"name":"hello.txt","size":12},"createdAt":"2026-01-30T00:00:00Z","did":"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw","hash":{"algo":"sha256","value":"a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447"},"metadata":{},"type":"artifact_signature","version":"m1"}
 ```
 
 **Signature (Base64):**
@@ -191,11 +191,11 @@ hello world
 ```
 
 **SHA-256 Hash:**
-`a948904f2f0f479b8f8564cbf12dac6b0e89139886364121334469a4744d0f6f`
+`a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447`
 
 **Canonicalized Envelope (JCS):**
 ```json
-{"algo":"ed25519","artifact":{"name":"hello.txt","size":12},"createdAt":"2026-01-30T00:00:00Z","did":"did:key:z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp","hash":{"algo":"sha256","value":"a948904f2f0f479b8f8564cbf12dac6b0e89139886364121334469a4744d0f6f"},"metadata":{},"type":"artifact_signature","version":"m1"}
+{"algo":"ed25519","artifact":{"name":"hello.txt","size":12},"createdAt":"2026-01-30T00:00:00Z","did":"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw","hash":{"algo":"sha256","value":"a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447"},"metadata":{},"type":"artifact_signature","version":"m1"}
 ```
 
 **Signature (Base64):**
@@ -484,11 +484,11 @@ hello world
 ```
 
 **SHA-256 Hash:**
-`a948904f2f0f479b8f8564cbf12dac6b0e89139886364121334469a4744d0f6f`
+`a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447`
 
 **Canonicalized Envelope (JCS):**
 ```json
-{"algo":"ed25519","artifact":{"name":"hello.txt","size":12},"createdAt":"2026-01-30T00:00:00Z","did":"did:key:z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp","hash":{"algo":"sha256","value":"a948904f2f0f479b8f8564cbf12dac6b0e89139886364121334469a4744d0f6f"},"metadata":{},"type":"artifact_signature","version":"m1"}
+{"algo":"ed25519","artifact":{"name":"hello.txt","size":12},"createdAt":"2026-01-30T00:00:00Z","did":"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw","hash":{"algo":"sha256","value":"a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447"},"metadata":{},"type":"artifact_signature","version":"m1"}
 ```
 
 **Signature (Base64):**
@@ -741,13 +741,13 @@ The repository will be structured as a Cargo workspace with two primary crates:
 **Expected Derived Values:**
 
 * **Public Key (hex):** `d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a`
-* **DID:** `did:key:z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp`
-* **File Hash (SHA-256):** `a948904f2f0f479b8f8564cbf12dac6b0e8b15d6c86796a2419409893a206dc`
+* **DID:** `did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw`
+* **File Hash (SHA-256):** `a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447`
 
 **Expected Canonical Envelope (Input for Signing):**
 
 ```json
-{"algo":"ed25519","artifact":{"name":"hello.txt","size":12},"createdAt":"2026-01-30T00:00:00Z","did":"did:key:z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp","hash":{"algo":"sha256","value":"a948904f2f0f479b8f8564cbf12dac6b0e8b15d6c86796a2419409893a206dc"},"metadata":{},"signature":"","type":"artifact_signature","version":"m1"}
+{"algo":"ed25519","artifact":{"name":"hello.txt","size":12},"createdAt":"2026-01-30T00:00:00Z","did":"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw","hash":{"algo":"sha256","value":"a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447"},"metadata":{},"signature":"","type":"artifact_signature","version":"m1"}
 
 ```
 

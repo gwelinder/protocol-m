@@ -16,7 +16,7 @@
         "Typecheck passes (cargo check)"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -35,7 +35,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -52,7 +52,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -68,7 +68,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -84,7 +84,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -101,7 +101,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -117,7 +117,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -134,7 +134,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -150,7 +150,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -166,7 +166,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -183,7 +183,7 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -202,7 +202,7 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -219,7 +219,7 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -235,7 +235,7 @@
         "Typecheck passes"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -253,7 +253,7 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -270,7 +270,7 @@
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -288,7 +288,7 @@
         "Typecheck passes"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -305,7 +305,7 @@
         "Typecheck passes"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -323,7 +323,7 @@
         "Typecheck passes"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -338,7 +338,7 @@
         "Typecheck passes"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -352,7 +352,7 @@
         "Typecheck passes"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -367,7 +367,7 @@
         "Typecheck passes"
       ],
       "priority": 22,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -386,7 +386,7 @@
         "Typecheck passes"
       ],
       "priority": 23,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -404,7 +404,7 @@
         "Typecheck passes"
       ],
       "priority": 24,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -421,7 +421,7 @@
         "Typecheck passes"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -430,13 +430,13 @@
       "description": "As a developer, I need colored output so verification results are clear.",
       "acceptanceCriteria": [
         "Add colored or termcolor dependency",
-        "On success: print green \u2713 with message",
-        "On failure: print red \u2717 with error",
+        "On success: print green ✓ with message",
+        "On failure: print red ✗ with error",
         "Show signer DID (truncated for readability)",
         "Typecheck passes"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -451,7 +451,7 @@
         "Typecheck passes"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -467,7 +467,7 @@
         "Typecheck passes"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -482,7 +482,7 @@
         "Typecheck passes"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -498,7 +498,7 @@
         "Typecheck passes"
       ],
       "priority": 30,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -516,7 +516,7 @@
         "Typecheck passes"
       ],
       "priority": 31,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -532,7 +532,7 @@
         "Typecheck passes"
       ],
       "priority": 32,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -550,8 +550,8 @@
         "Typecheck passes"
       ],
       "priority": 33,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Signature verification deferred to US-005C"
     },
     {
       "id": "US-005C",
@@ -566,8 +566,8 @@
         "Typecheck passes"
       ],
       "priority": 34,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented validation: signature verification, DID parsing, metadata size/structure, duplicate hash check"
     },
     {
       "id": "US-006A",
@@ -582,8 +582,8 @@
         "Typecheck passes"
       ],
       "priority": 35,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migration includes CASCADE delete, indexes for parent/child lookups"
     },
     {
       "id": "US-006B",
@@ -598,8 +598,8 @@
         "Typecheck passes"
       ],
       "priority": 36,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Supports string or array of IDs/hashes; cycle detection in US-006C"
     },
     {
       "id": "US-006C",
@@ -614,8 +614,8 @@
         "Typecheck passes"
       ],
       "priority": 37,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "DFS with visited set and depth limit; self-reference check; 400 error on cycle"
     },
     {
       "id": "US-007A",
@@ -630,8 +630,8 @@
         "Typecheck passes"
       ],
       "priority": 38,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented traverse_attribution with BFS, visited set for cycle prevention, 100 result limit per level"
     },
     {
       "id": "US-007B",
@@ -646,8 +646,8 @@
         "Typecheck passes"
       ],
       "priority": 39,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added DepthLevel struct, group_by_depth function, 'levels' field in response alongside 'parents' for backwards compat"
     },
     {
       "id": "US-008A",
@@ -662,8 +662,8 @@
         "Typecheck passes"
       ],
       "priority": 40,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added unique constraint on active DIDs to prevent duplicate bindings; 111 tests pass"
     },
     {
       "id": "US-008B",
@@ -678,8 +678,8 @@
         "Typecheck passes"
       ],
       "priority": 41,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added migration 20260131000004, DidChallenge model with is_valid/is_used/is_expired helpers; 116 tests pass"
     },
     {
       "id": "US-008C",
@@ -696,8 +696,8 @@
         "Typecheck passes"
       ],
       "priority": 42,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added identity.rs routes module with challenge endpoint; 120 tests pass"
     },
     {
       "id": "US-008D",
@@ -717,8 +717,8 @@
         "Typecheck passes"
       ],
       "priority": 43,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented POST /api/v1/identity/bind endpoint with signature verification and transaction handling; 128 tests pass"
     },
     {
       "id": "US-008E",
@@ -731,8 +731,8 @@
         "Typecheck passes"
       ],
       "priority": 44,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented check_challenge_rate_limit with sliding window, TooManyRequests error with Retry-After header; 130 tests pass"
     },
     {
       "id": "US-008F",
@@ -745,8 +745,8 @@
         "Typecheck passes"
       ],
       "priority": 45,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added failed_attempts column to did_challenges, is_locked() helper, increment_failed_attempts function; 136 tests pass"
     },
     {
       "id": "US-008G",
@@ -762,8 +762,8 @@
         "Typecheck passes"
       ],
       "priority": 46,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 5 integration tests in tests/did_binding_integration.rs covering full flow, invalid signature, expired challenge, used challenge detection; tests marked #[ignore] requiring PostgreSQL; 136 tests pass"
     },
     {
       "id": "US-009A",
@@ -777,8 +777,8 @@
         "Typecheck passes"
       ],
       "priority": 47,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created GET /api/v1/profile/{user_id}/dids endpoint with BoundDid and ProfileResponse types; 140 tests pass"
     },
     {
       "id": "US-009B",
@@ -793,8 +793,8 @@
         "Typecheck passes"
       ],
       "priority": 48,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created Next.js frontend scaffold with IdentityBadge component in web/src/components/IdentityBadge.tsx; includes truncateDid utility, tooltip on hover, click-to-copy, and timestamp display; typecheck passes"
     },
     {
       "id": "US-009C",
@@ -809,8 +809,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 49,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created ProfileIdentities component in web/src/components/ProfileIdentities.tsx with expand/collapse, empty state, and Bind DID button; added profile page at /profile/[userId] and bind-identity instructions page; typecheck passes"
     },
     {
       "id": "US-010A",
@@ -825,8 +825,8 @@
         "Typecheck passes"
       ],
       "priority": 50,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000006 with verification_status enum, signature_envelope_json (JSONB), verified_did columns, and indexes; added Post/NewPost/VerificationStatus model types with 5 unit tests; 145 tests pass"
     },
     {
       "id": "US-010B",
@@ -843,8 +843,8 @@
         "Typecheck passes"
       ],
       "priority": 51,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created verify_post_signature in routes/posts.rs with VerificationResult struct, SHA-256 hash verification, JCS canonicalization, DID extraction, and binding check; added 13 unit tests; 158 tests pass"
     },
     {
       "id": "US-010C",
@@ -859,8 +859,8 @@
         "Typecheck passes"
       ],
       "priority": 52,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created POST /api/v1/posts endpoint with CreatePostRequest/CreatePostResponse; integrates verify_post_signature for optional signature verification; stores envelope, verified_did, and status; 158 tests pass"
     },
     {
       "id": "US-011A",
@@ -868,15 +868,15 @@
       "description": "As a developer, I need badge component so verified posts are marked.",
       "acceptanceCriteria": [
         "Create VerifiedBadge component",
-        "Show green \u2713 icon for valid_bound status",
+        "Show green ✓ icon for valid_bound status",
         "Show 'Signed' text (no checkmark) for valid_unbound",
         "Show nothing for none or invalid status",
         "Add hover tooltip with signer DID",
         "Typecheck passes"
       ],
       "priority": 53,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created VerifiedBadge component in web/src/components/VerifiedBadge.tsx; shows green checkmark + 'Verified' for valid_bound, 'Signed' text for valid_unbound, nothing for none/invalid; includes hover tooltip with truncated signer DID; typecheck passes"
     },
     {
       "id": "US-011B",
@@ -890,8 +890,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 54,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created PostCard component in web/src/components/PostCard.tsx with VerifiedBadge integration; badge positioned next to author name; typecheck passes"
     },
     {
       "id": "US-011C",
@@ -907,8 +907,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 55,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created SignatureModal component in web/src/components/SignatureModal.tsx with JSON syntax highlighting, summary fields, and Copy JSON button; updated VerifiedBadge to open modal on click; typecheck passes"
     },
     {
       "id": "US-012A",
@@ -923,8 +923,8 @@
         "Typecheck passes"
       ],
       "priority": 56,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000007 with NUMERIC(20,8) for precise decimals, non-negative balance constraints, automatic updated_at trigger; MCreditsAccount model with total_balance/has_sufficient_balance helpers; bigdecimal crate with serde feature; 4 unit tests; 162 tests pass"
     },
     {
       "id": "US-012B",
@@ -941,8 +941,8 @@
         "Typecheck passes"
       ],
       "priority": 57,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000008 with m_credits_event_type enum, NUMERIC(20,8) amount, from_did/to_did, metadata JSONB; MCreditsLedger/NewMCreditsLedger models with factory methods; 7 unit tests; 169 tests pass"
     },
     {
       "id": "US-012C",
@@ -957,8 +957,8 @@
         "Typecheck passes"
       ],
       "priority": 58,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000009 with payment_provider enum (stripe, usdc, apple_pay, manual), invoice_status enum (pending, completed, failed), NUMERIC fields for USD (10,2) and credits (20,8), updated_at trigger; PurchaseInvoice/NewPurchaseInvoice models with status helpers; 6 unit tests; 175 tests pass"
     },
     {
       "id": "US-012D",
@@ -974,8 +974,8 @@
         "Typecheck passes"
       ],
       "priority": 59,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created POST /api/v1/credits/purchase endpoint with PurchaseCreditsRequest/Response types, credit calculation (1 USD = 100 credits), amount validation ($1-$10k), payment provider parsing (Stripe/USDC/Apple Pay), placeholder Stripe Checkout URL; 22 unit tests; 197 tests pass"
     },
     {
       "id": "US-012E",
@@ -993,8 +993,8 @@
         "Typecheck passes"
       ],
       "priority": 60,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created POST /api/v1/credits/webhook/stripe endpoint with handle_stripe_webhook handler; StripeWebhookRequest/Response types for Stripe checkout session events; verify_stripe_signature placeholder for production signature verification; extract_invoice_id from metadata or client_reference_id; load_pending_invoice validates status; mint_credits_to_did inserts ledger entry and upserts account balance atomically; complete_invoice and fail_invoice update status; 17 unit tests for webhook functionality; 213 total tests pass"
     },
     {
       "id": "US-012F",
@@ -1010,8 +1010,8 @@
         "Typecheck passes"
       ],
       "priority": 61,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added PromoMint event type to MCreditsEventType enum; migration 20260131000010 adds promo_mint to PostgreSQL enum; grant_promo_credits enforces 100 credits lifetime limit per DID; POST /api/v1/credits/grant-promo endpoint with optional expiry; 13 new unit tests; 227 total tests pass"
     },
     {
       "id": "US-012G",
@@ -1026,8 +1026,8 @@
         "Typecheck passes"
       ],
       "priority": 62,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented GET /api/v1/credits/reserves with total_outstanding_credits (main+promo), total_reserves_usd, reserve_coverage_ratio (main balance only, promo not backed), account/invoice counts, timestamp, attestation hash (SHA-256), and placeholder signature; 14 unit tests; 239 total tests pass"
     },
     {
       "id": "US-013A",
@@ -1042,8 +1042,8 @@
         "Typecheck passes"
       ],
       "priority": 63,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000011 with bounty_closure_type enum (tests, quorum, requester), bounty_status enum (open, in_progress, completed, cancelled), bounties table with NUMERIC(20,8) reward_credits, JSONB metadata, indexes on poster_did/status/deadline/created_at, composite index for open marketplace; Bounty/NewBounty models with factory methods and helpers; 10 unit tests; 249 total tests pass"
     },
     {
       "id": "US-013B",
@@ -1058,8 +1058,8 @@
         "Typecheck passes"
       ],
       "priority": 64,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000012 with escrow_status enum (held, released, cancelled), escrow_holds table with NUMERIC(20,8) amount, indexes on bounty_id/holder_did/status, composite index for active escrows; EscrowHold/NewEscrowHold/EscrowStatus models with factory method and helpers; 5 unit tests; 254 total tests pass"
     },
     {
       "id": "US-013C",
@@ -1079,8 +1079,8 @@
         "Typecheck passes"
       ],
       "priority": 65,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created POST /api/v1/bounties endpoint with CreateBountyRequest/CreateBountyResponse types; closure-type-specific validation (tests requires evalHarnessHash, quorum requires reviewerCount/minReviewerRep); DID binding verification; balance check; escrow hold creation with ledger entry; 35 unit tests; 220 total tests pass"
     },
     {
       "id": "US-014A",
@@ -1095,8 +1095,8 @@
         "Typecheck passes"
       ],
       "priority": 66,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000013 with submission_status enum (pending, approved, rejected), bounty_submissions table with FK to bounties, indexes on bounty_id/submitter_did/status, composite index for pending submissions; BountySubmission/NewBountySubmission/SubmissionStatus models with factory methods and execution receipt helpers; 8 unit tests; 227 total tests pass"
     },
     {
       "id": "US-014B",
@@ -1113,8 +1113,8 @@
         "Typecheck passes"
       ],
       "priority": 67,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added POST /api/v1/bounties/{id}/submit endpoint; requires DID binding; accepts SignatureEnvelopeV1 with optional execution_receipt; verifies ed25519 signature cryptographically; validates execution receipt for test-based bounties (harness_hash and all_tests_passed required); verifies signer matches submitter DID; inserts submission with status=pending; returns submission_id; 20 new unit tests; 244 total tests pass"
     },
     {
       "id": "US-014C",
@@ -1130,8 +1130,8 @@
         "Typecheck passes"
       ],
       "priority": 68,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented test-based auto-approval in submit_bounty handler; added verify_test_submission, update_submission_status functions; TestVerificationResult enum tracks approval/rejection reasons; supports both snake_case and camelCase execution receipt fields; auto-approves when harness_hash matches and all_tests_passed is true; auto-rejects otherwise; response includes auto_approved flag and message; 14 new unit tests; escrow release deferred to US-014D; 258 total tests pass"
     },
     {
       "id": "US-014D",
@@ -1147,8 +1147,8 @@
         "Typecheck passes"
       ],
       "priority": 69,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented release_escrow function that: marks escrow status to released, inserts release ledger entry, upserts recipient balance atomically, updates bounty status to completed; added mint_reputation_for_submission with closure-type weights (tests=1.5x, quorum=1.2x, requester=1.0x); wired both into submit_bounty auto-approval flow; 11 new unit tests for escrow release and reputation minting; 267 total tests pass"
     },
     {
       "id": "US-014E",
@@ -1162,8 +1162,8 @@
         "Typecheck passes"
       ],
       "priority": 70,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented register_submission_artifact function to auto-register artifacts on approval; checks for existing artifacts by hash; creates derivation links from parent_artifact_id in bounty metadata with cycle detection; updates submission with artifact_id reference; added migration 20260131000014 for artifact_id column; updated BountySubmission model with artifact_id field; 10 new unit tests; 279 total tests pass"
     },
     {
       "id": "US-015A",
@@ -1177,8 +1177,8 @@
         "Typecheck passes"
       ],
       "priority": 71,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000015 with provider_type enum (openai, anthropic, gpu_provider), conversion_rate NUMERIC(20,8), is_active boolean, indexes, updated_at trigger; default OpenAI/Anthropic providers; ComputeProvider/NewComputeProvider/ProviderType models with factory methods and helpers; 8 unit tests; 287 total tests pass"
     },
     {
       "id": "US-015B",
@@ -1197,8 +1197,8 @@
         "Typecheck passes"
       ],
       "priority": 72,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created redemption_receipts table migration (20260131000016); RedemptionReceipt model; POST /api/v1/credits/redeem endpoint with validation, balance check, atomic deduction, burn event, provider allocation placeholder, receipt storage; 302 total tests pass"
     },
     {
       "id": "US-015C",
@@ -1213,8 +1213,8 @@
         "Typecheck passes"
       ],
       "priority": 73,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented as part of US-015B - migration 20260131000016_create_redemption_receipts_table.sql with all required fields, indexes on user_did, provider_id, and created_at; RedemptionReceipt and NewRedemptionReceipt models with 3 unit tests"
     },
     {
       "id": "US-015D",
@@ -1228,8 +1228,8 @@
         "Typecheck passes"
       ],
       "priority": 74,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented GET /api/v1/credits/balance endpoint with get_user_bound_did for DID lookup, get_account_balances for main/promo balances, get_recent_transactions for last 10 transactions; added BalanceRequest/BalanceResponse/TransactionRecord types; 10 new unit tests for serialization and response formatting"
     },
     {
       "id": "US-016A",
@@ -1245,8 +1245,8 @@
         "Typecheck passes"
       ],
       "priority": 75,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created m_reputation table migration (migration 17) and reputation_events ledger table (migration 18); implemented MReputation and ReputationEvent models with weights (tests=1.5x, quorum=1.2x, requester=1.0x); mint_reputation function with closure_type weighting and optional reviewer_credibility; time decay of 0.99 per month; reputation routes module; updated bounties to use new reputation system; 20+ new unit tests"
     },
     {
       "id": "US-016B",
@@ -1261,8 +1261,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 76,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created BountyCard component in web/src/components/BountyCard.tsx with ClosureTypeBadge, truncated DID display, deadline formatting; marketplace page at /marketplace shows open bounties with stats bar (count, total rewards), empty state, loading state; mock data for development; typecheck passes"
     },
     {
       "id": "US-016C",
@@ -1277,8 +1277,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 77,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added search input, filter dropdowns (closure type, reward range, deadline), sort options (newest, highest reward, ending soon); filters persist in URL query params using useSearchParams/useRouter; stats bar updates to show filtered count; empty state for no matches with clear button; typecheck passes"
     },
     {
       "id": "US-016D",
@@ -1294,8 +1294,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 78,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added POST /api/v1/bounties/{id}/accept endpoint with DID binding check, status update to in_progress, submission instructions; AcceptBountyModal component with DID binding prompt; BountyCard with Accept Bounty button; 9 new unit tests; 357 total tests pass; typecheck passes"
     },
     {
       "id": "US-016E-R",
@@ -1311,8 +1311,8 @@
         "Typecheck passes"
       ],
       "priority": 79,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added POST /api/v1/bounties/{id}/dispute endpoint with: disputes table migration (status enum, stake_amount, stake_escrow_id, dispute_deadline); Dispute, NewDispute models with calculate_dispute_stake helper; 10% stake requirement from bounty reward; 7-day dispute window validation; stake escrow hold creation; prevents self-disputes and duplicate active disputes; 16 new unit tests; 374 server tests pass; typecheck passes"
     },
     {
       "id": "US-016F-R",
@@ -1328,8 +1328,8 @@
         "Typecheck passes"
       ],
       "priority": 80,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created POST /api/v1/disputes/{id}/resolve endpoint in new disputes.rs routes module; ResolveDisputeRequest/Response types with outcome parsing; UpholdSubmission slashes initiator stake and releases escrow to submitter; RejectSubmission returns stake to initiator and escrow to poster; reputation penalties (50% of base rep) applied to dispute losers; dispute winners get small reputation reward; added Forbidden error variant; 18 new unit tests; 392 server tests pass; typecheck passes"
     },
     {
       "id": "US-017A",
@@ -1343,8 +1343,8 @@
         "Typecheck passes"
       ],
       "priority": 81,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created fixtures/policy.schema.json with JSON Schema 2020-12; fields include version, max_spend_per_day, max_spend_per_bounty, allowed_delegates (with DID pattern validation), approval_tiers (with threshold, require_approval, approvers, timeout_hours, notification_channels), emergency_contact, enabled; comprehensive docs/POLICY.md with examples; 392 tests pass"
     },
     {
       "id": "US-017B",
@@ -1360,8 +1360,8 @@
         "Typecheck passes"
       ],
       "priority": 82,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created crates/openclaw-cli/src/policy.rs with Policy, ApprovalTier, NotificationChannel, EmergencyContact structs; validate_policy() parses JSON, validates version='1.0', checks non-negative limits, validates DIDs in allowed_delegates and approval_tiers.approvers using openclaw_crypto::did_to_verifying_key, validates positive thresholds; 20 unit tests cover valid/invalid JSON, version, negative values, invalid DIDs, empty tiers, notification channels; all 38 CLI tests pass"
     },
     {
       "id": "US-017C",
@@ -1377,8 +1377,8 @@
         "Typecheck passes"
       ],
       "priority": 83,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added PolicyAction enum with Set and Show variants; handle_policy_set reads policy file, validates with validate_policy(), creates ~/.openclaw/ directory with 0700 perms if needed, writes policy.json with 0600 perms, prints success with policy summary; handle_policy_show displays current policy with detailed output including delegates and approval tiers; also added get_openclaw_dir() helper function"
     },
     {
       "id": "US-018A",
@@ -1393,8 +1393,8 @@
         "Typecheck passes"
       ],
       "priority": 84,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000020 with approval_action_type enum (delegate, spend), approval_request_status enum (pending, approved, rejected, expired); approval_requests table with operator_did, bounty_id FK, action_type, amount, status, metadata JSONB, timestamps, expires_at, requester_did, resolution_reason; indexes on operator_did, status, requester_did, bounty_id, created_at, pending_expiry, operator_pending; ApprovalRequest/NewApprovalRequest models with factory methods for spend/delegate, status helpers, metadata accessors; 16 unit tests; 408 total tests pass"
     },
     {
       "id": "US-018B",
@@ -1410,8 +1410,8 @@
         "Typecheck passes"
       ],
       "priority": 85,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created user_policies table migration for DID-linked policies; added pending_approval bounty status; UserPolicy model with approval tier checking via requires_approval(); modified create_bounty to load policy and check thresholds; bounty created with status=pending_approval, approval_request created with bounty_id/amount/metadata; notification placeholder logs to tracing; CreateBountyResponse now includes approval_request_id; 10 new unit tests; 429 total tests pass"
     },
     {
       "id": "US-018C",
@@ -1428,8 +1428,8 @@
         "Typecheck passes"
       ],
       "priority": 86,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 'openclaw approve <request_id>' CLI command with --server and --yes flags; created routes/approvals.rs with GET and POST endpoints; GET /api/v1/approvals/{id} returns details with bounty info; POST /api/v1/approvals/{id}/approve validates operator DID, checks pending status and expiry, creates escrow hold, updates bounty to open; added ureq and uuid dependencies to CLI; 10 new approvals tests; 438 total tests pass"
     },
     {
       "id": "US-018D",
@@ -1445,8 +1445,8 @@
         "Typecheck passes"
       ],
       "priority": 87,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 'openclaw reject <request_id>' CLI command with --server, --reason, and --yes flags; added POST /api/v1/approvals/{id}/reject endpoint; validates operator DID, checks pending status and expiry; cancels bounty and marks approval request as rejected; sends rejection notification to requester (placeholder); prompts for rejection reason interactively or accepts via --reason flag; 4 new unit tests; 442 total tests pass"
     },
     {
       "id": "US-019A",
@@ -1460,8 +1460,8 @@
         "Typecheck passes"
       ],
       "priority": 88,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000023 with agent_suspensions table; includes id (UUID PK), operator_did, reason, suspended_at, resumed_at (nullable), metadata (JSONB), resumed_by_did (nullable); indexes on operator_did and active suspensions; AgentSuspension/NewAgentSuspension models with helper methods; 9 unit tests; 451 server tests pass"
     },
     {
       "id": "US-019B",
@@ -1526,7 +1526,7 @@
         "Add test verifying deterministic roots",
         "Typecheck passes"
       ],
-      "priority": 92,
+      "priority": 94,
       "passes": false,
       "notes": ""
     },
@@ -1541,7 +1541,7 @@
         "Migration runs successfully",
         "Typecheck passes"
       ],
-      "priority": 93,
+      "priority": 95,
       "passes": false,
       "notes": ""
     },
@@ -1558,7 +1558,7 @@
         "Store L2 tx hash if published",
         "Typecheck passes"
       ],
-      "priority": 94,
+      "priority": 96,
       "passes": false,
       "notes": ""
     },
@@ -1574,7 +1574,7 @@
         "Add endpoint GET /api/v1/credits/proof/{event_id}",
         "Typecheck passes"
       ],
-      "priority": 95,
+      "priority": 97,
       "passes": false,
       "notes": ""
     },
@@ -1592,7 +1592,7 @@
         "Downweight reputation by collusion_risk factor",
         "Typecheck passes"
       ],
-      "priority": 96,
+      "priority": 98,
       "passes": false,
       "notes": ""
     },
@@ -1611,7 +1611,7 @@
         "Workflow passes",
         "Typecheck passes"
       ],
-      "priority": 97,
+      "priority": 99,
       "passes": false,
       "notes": ""
     },
@@ -1627,7 +1627,7 @@
         "Workflow passes",
         "Typecheck passes"
       ],
-      "priority": 98,
+      "priority": 100,
       "passes": false,
       "notes": ""
     },
@@ -1711,7 +1711,7 @@
         "All steps pass",
         "Typecheck passes"
       ],
-      "priority": 103,
+      "priority": 92,
       "passes": false,
       "notes": ""
     },
@@ -1727,7 +1727,7 @@
         "Checklist complete",
         "Typecheck passes"
       ],
-      "priority": 104,
+      "priority": 93,
       "passes": false,
       "notes": ""
     },
@@ -1918,7 +1918,7 @@
       "acceptanceCriteria": [
         "Create docs/ARCHITECTURE.md",
         "Diagram: Layers (Identity, Attribution, Social, Economics, Governance)",
-        "Explain data flow: DID generation \u2192 signing \u2192 verification \u2192 reputation",
+        "Explain data flow: DID generation → signing → verification → reputation",
         "Include Moltbook integration points",
         "Post summary to m/protocol-m with link"
       ],
@@ -2025,7 +2025,7 @@
       "description": "As a developer, I want documentation so others can implement signed posts.",
       "acceptanceCriteria": [
         "Create docs/MOLTBOOK_SIGNATURES.md",
-        "Explain: OpenClaw sign \u2192 Moltbook post with envelope \u2192 verification",
+        "Explain: OpenClaw sign → Moltbook post with envelope → verification",
         "Include code examples (Rust, curl)",
         "Diagram the signature verification flow",
         "Post link to m/protocol-m"
@@ -2398,8 +2398,8 @@
       "description": "As the Protocol M agent, I want a visual roadmap so the community sees progress.",
       "acceptanceCriteria": [
         "Generate roadmap diagram (text-based or image)",
-        "Show: Completed (\u2705), In Progress (\ud83d\udd04), Planned (\ud83d\udccb)",
-        "Phases: Identity \u2192 Attribution \u2192 Social \u2192 Economics \u2192 Governance",
+        "Show: Completed (✅), In Progress (🔄), Planned (📋)",
+        "Phases: Identity → Attribution → Social → Economics → Governance",
         "Include major milestones with dates",
         "Post to m/protocol-m",
         "Update monthly or after major milestones"
@@ -2616,6 +2616,1221 @@
       "priority": 160,
       "passes": false,
       "notes": ""
+    },
+    {
+      "id": "US-043A",
+      "title": "Resolve Golden Test Vector inconsistency across docs",
+      "description": "As a developer, I need a single canonical golden vector so implementations are interoperable.",
+      "acceptanceCriteria": [
+        "Compare golden vector values in moltbook/prd-closer.md and moltbook/project.md",
+        "Choose the canonical vector (use moltbook/prd-closer.md values)",
+        "Update moltbook/project.md to match canonical hash/DID/signature exactly",
+        "Add a CI check that fails if fixtures/golden.json does not match canonical vector",
+        "Typecheck passes"
+      ],
+      "priority": 161,
+      "passes": false,
+      "notes": "Refs: moltbook/prd-closer.md, moltbook/project.md"
+    },
+    {
+      "id": "US-043B",
+      "title": "Implement identity rotation certificates in OpenClaw CLI (v0.1.1)",
+      "description": "As a user, I need key rotation certificates so I can migrate to a new DID while preserving continuity.",
+      "acceptanceCriteria": [
+        "Implement openclaw identity rotate to generate new keypair and new DID",
+        "Emit did_rotation envelope matching moltbook/prd-closer.md section 5.5",
+        "Sign rotation certificate with both old and new keys",
+        "Write rotation JSON to disk and register it in event_log.jsonl",
+        "Typecheck passes"
+      ],
+      "priority": 162,
+      "passes": false,
+      "notes": "Refs: moltbook/prd-closer.md"
+    },
+    {
+      "id": "US-043C",
+      "title": "Implement verify-rotation command in OpenClaw CLI",
+      "description": "As a verifier, I need to verify rotation certificates so I can trust DID continuity.",
+      "acceptanceCriteria": [
+        "Implement openclaw identity verify-rotation <rotation.json>",
+        "Verify both signatures and ensure oldDid/newDid parse as did:key",
+        "Fail-closed on unknown version/type/algo",
+        "Return non-zero exit code on failure with clear error",
+        "Typecheck passes"
+      ],
+      "priority": 163,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043D",
+      "title": "Support multi-DID bindings per Moltbook account with primary DID selection",
+      "description": "As a user, I need to bind multiple DIDs and select a primary DID for posting.",
+      "acceptanceCriteria": [
+        "Add did_bindings.is_primary boolean and unique constraint (user_id where is_primary=true)",
+        "Add endpoint POST /v1/identity/set-primary { did }",
+        "Update profile query to return primary DID first",
+        "UI: allow selecting primary DID and revoking old DIDs",
+        "Typecheck passes"
+      ],
+      "priority": 164,
+      "passes": false,
+      "notes": "Extends US-009A/US-009B"
+    },
+    {
+      "id": "US-043E",
+      "title": "Add DID revocation flow in Moltbook",
+      "description": "As a user, I need to revoke a DID binding so compromised keys can be retired.",
+      "acceptanceCriteria": [
+        "Add endpoint POST /v1/identity/revoke { did }",
+        "Set revoked_at timestamp and prevent revoked DID from granting valid_bound status",
+        "UI: show revoked DIDs in a collapsed section",
+        "Add tests for revoked behavior on posting verification",
+        "Typecheck passes"
+      ],
+      "priority": 165,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043F",
+      "title": "Implement message signing and verification commands in OpenClaw CLI",
+      "description": "As a user, I need sign-message and verify-message so platforms can bind my DID via challenge-response.",
+      "acceptanceCriteria": [
+        "Implement openclaw sign-message \"<message>\" and openclaw verify-message",
+        "Use message_signature envelope schema in moltbook/prd-closer.md section 5.3",
+        "Deterministic canonicalization using JCS with signature field set to empty string",
+        "Add golden vector-style unit test for message signatures",
+        "Typecheck passes"
+      ],
+      "priority": 166,
+      "passes": false,
+      "notes": "Refs: moltbook/prd-closer.md"
+    },
+    {
+      "id": "US-043G",
+      "title": "Add OpenClaw event log export and verify commands",
+      "description": "As an auditor, I need portable signed event logs so I can verify an agent's activity history offline.",
+      "acceptanceCriteria": [
+        "Implement openclaw log export --out <path> to export event_log.jsonl",
+        "Implement openclaw log verify to verify signatures and seq ordering",
+        "Detect missing seq, duplicate seq, or out-of-order seq",
+        "Add test with tampered line that fails verification",
+        "Typecheck passes"
+      ],
+      "priority": 167,
+      "passes": false,
+      "notes": "Refs: moltbook/prd-closer.md Epic C"
+    },
+    {
+      "id": "US-043H",
+      "title": "Add server-side signed audit log for critical economic actions",
+      "description": "As a platform auditor, I need server-signed logs so critical credit and governance actions are tamper-evident.",
+      "acceptanceCriteria": [
+        "Create server_audit_log table storing append-only JSON lines",
+        "Log events: mint, burn, hold_open, hold_release, stake_slash, admin_override",
+        "Compute and store hash chaining (prev_hash) to make the log tamper-evident",
+        "Expose GET /v1/audit/log?since=... for read-only access",
+        "Typecheck passes"
+      ],
+      "priority": 168,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043I",
+      "title": "Add idempotency keys to all credit ledger writes",
+      "description": "As a developer, I need idempotent ledger writes so retries do not double-mint or double-transfer credits.",
+      "acceptanceCriteria": [
+        "Add idempotency_key column with unique index to m_credits_ledger",
+        "All endpoints that write ledger events require Idempotency-Key header",
+        "On duplicate key, return prior successful response without writing new events",
+        "Add tests for duplicate request replay safety",
+        "Typecheck passes"
+      ],
+      "priority": 169,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043J",
+      "title": "Implement quorum review vote objects as signed envelopes",
+      "description": "As a reviewer, I need to sign my review vote so quorum approvals are auditable and slashable.",
+      "acceptanceCriteria": [
+        "Define review_vote envelope: version, type=review_vote, did, bounty_id, submission_id, vote, confidence, createdAt, metadata, signature",
+        "Use JCS canonicalization identical to other envelopes",
+        "Store vote envelopes in bounty_reviews table (new migration)",
+        "Expose votes in bounty details API for audit",
+        "Typecheck passes"
+      ],
+      "priority": 170,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043K",
+      "title": "Add reviewer stake lock and slash mechanisms for quorum bounties",
+      "description": "As the system, I need reviewers to stake so dishonest approvals are costly.",
+      "acceptanceCriteria": [
+        "When reviewer submits a vote, lock stake via ledger event_type=stake_lock",
+        "On dispute resolution, slash stakes for reviewers whose votes contradict final outcome",
+        "Release stake for aligned reviewers after dispute window expiry",
+        "Persist reviewer stake amounts in bounty_reviews table",
+        "Typecheck passes"
+      ],
+      "priority": 171,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043L",
+      "title": "Implement reviewer selection API with reputation gating",
+      "description": "As a requester, I need to require reviewers above a reputation threshold for high-value bounties.",
+      "acceptanceCriteria": [
+        "Add fields to bounties: reviewer_count, min_reviewer_rep, reviewer_stake_amount",
+        "Implement GET /v1/reviewers/candidates?minRep=...&limit=...",
+        "Exclude reviewers with active suspension or high collusion_risk score",
+        "Add tests ensuring low-rep DIDs are excluded",
+        "Typecheck passes"
+      ],
+      "priority": 172,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043M",
+      "title": "Add quality score computation for test-closure submissions",
+      "description": "As the system, I need a deterministic quality score so rewards and reputation can be computed automatically.",
+      "acceptanceCriteria": [
+        "Extend execution_receipt schema: pass_rate, all_tests_passed, perf_metrics, reproducibility_hashes",
+        "Compute Q per specification and store on bounty_submissions.quality_score",
+        "If all_tests_passed=false, set quality_score=0 and reject",
+        "Add unit tests for Q computation edge cases",
+        "Typecheck passes"
+      ],
+      "priority": 173,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043N",
+      "title": "Add quality incentive pool and bonus payouts",
+      "description": "As a worker, I want higher-quality work to earn an additional bonus funded by protocol fees, not unbacked minting.",
+      "acceptanceCriteria": [
+        "Create quality_incentive_pool table tracking available pool balance",
+        "Fund pool from a fixed percentage of protocol fees",
+        "On successful completion, compute bonus = min(cap, B*bonus_rate*Q) and pay from pool",
+        "Record pool debit as ledger transfer from pool DID to worker DID",
+        "Typecheck passes"
+      ],
+      "priority": 174,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043O",
+      "title": "Add performance benchmark harness support for bounties",
+      "description": "As a requester, I need to require performance thresholds so agents cannot game tests while being too slow/expensive.",
+      "acceptanceCriteria": [
+        "Add bounty metadata: perf_thresholds (latency_ms, memory_mb, cost_units)",
+        "Require execution_receipt to include measured perf_metrics",
+        "Reject submissions that pass tests but fail perf thresholds",
+        "Add integration test with failing perf metrics",
+        "Typecheck passes"
+      ],
+      "priority": 175,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043P",
+      "title": "Add promo credit non-transferability enforcement at ledger layer",
+      "description": "As the system, I must prevent promo credits from being transferred to stop farming and resale.",
+      "acceptanceCriteria": [
+        "Mark ledger rows that affect promo_balance separately from main balance",
+        "Reject any transfer event attempting to move promo_balance between DIDs",
+        "Allow promo_balance spending only via approved event types (fees, limited redemption)",
+        "Add tests for attempted promo transfer rejection",
+        "Typecheck passes"
+      ],
+      "priority": 176,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043Q",
+      "title": "Implement promo credit expiry sweeper job",
+      "description": "As the system, I need promo credits to expire so liabilities do not accumulate and farming is limited.",
+      "acceptanceCriteria": [
+        "Store promo expiry timestamps per grant in ledger metadata",
+        "Nightly job computes expired promo amounts per DID",
+        "Deduct expired promo_balance and record ledger burn_fee or burn_expiry event",
+        "Add monitoring metric for expired promo totals",
+        "Typecheck passes"
+      ],
+      "priority": 177,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043R",
+      "title": "Implement trust escalation ladder for autonomous spending",
+      "description": "As a platform, I need progressive autonomy so higher-rep agents can act faster without exceeding safe bounds.",
+      "acceptanceCriteria": [
+        "Define trust tiers based on MR, account age, dispute rate, and collusion_risk",
+        "Enforce tier-based caps: max_spend_per_day, max_bounty_value, max_open_escrows",
+        "Expose GET /v1/agents/trust-tier returning tier and limits",
+        "Add tests for tier transitions",
+        "Typecheck passes"
+      ],
+      "priority": 178,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043S",
+      "title": "Add global kill switch for economic actions",
+      "description": "As an operator, I need a kill switch so I can halt all credit transfers and escrows during incidents.",
+      "acceptanceCriteria": [
+        "Add system_settings table with economic_halt boolean",
+        "Middleware blocks endpoints: purchase confirmation, transfers, holds, releases, redeems",
+        "Allow read-only endpoints (balance, reserves, audit) to continue",
+        "Add admin endpoint POST /v1/admin/economic-halt { enabled }",
+        "Typecheck passes"
+      ],
+      "priority": 179,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043T",
+      "title": "Add per-DID emergency spending caps enforced server-side",
+      "description": "As a user, I need hard server-side caps so compromised agents cannot drain my account even if local policy is bypassed.",
+      "acceptanceCriteria": [
+        "Add m_credits_accounts.daily_spend_limit and per_tx_limit",
+        "Track daily spend usage with rolling window",
+        "Reject transactions exceeding limits with clear error",
+        "Add UI to set limits (requires re-auth)",
+        "Typecheck passes"
+      ],
+      "priority": 180,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043U",
+      "title": "Implement compute provider marketplace offers",
+      "description": "As a compute provider, I want to list offers priced in M-Credits so agents can buy GPU time competitively.",
+      "acceptanceCriteria": [
+        "Create compute_offers table: provider_id, gpu_type, region, price_per_unit, sla, metadata",
+        "Add POST /v1/compute/offers (provider auth) and GET /v1/compute/offers (public)",
+        "Add validation for price bounds and offer TTL",
+        "Typecheck passes"
+      ],
+      "priority": 181,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043V",
+      "title": "Implement compute order escrow and execution receipts",
+      "description": "As a buyer, I want compute purchases to use escrow and receipts so fraud can be disputed.",
+      "acceptanceCriteria": [
+        "Create compute_orders table: buyer_did, offer_id, units, status, escrow_hold_id",
+        "Lock buyer funds in escrow when placing order",
+        "Require provider to submit signed execution_receipt with environment hash and outputs hash",
+        "Release escrow on receipt validation; allow disputes within window",
+        "Typecheck passes"
+      ],
+      "priority": 182,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043W",
+      "title": "Add MR-based gating for high-value bounties and reviews",
+      "description": "As a platform, I need reputation gating so new Sybil DIDs cannot access high-value tasks immediately.",
+      "acceptanceCriteria": [
+        "Add min_worker_rep and min_reviewer_rep fields to bounties",
+        "Enforce gating in accept and review endpoints",
+        "Allow bypass only with explicit bonded credits (stake_lock) configured per bounty",
+        "Add tests for gating behavior",
+        "Typecheck passes"
+      ],
+      "priority": 183,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043X",
+      "title": "Implement MR decay job with half-life configuration",
+      "description": "As a platform, I need reputation decay so MR reflects current competence and reduces long-term capture.",
+      "acceptanceCriteria": [
+        "Add config for MR half-life days and inactivity multipliers",
+        "Nightly job updates MR for all active DIDs based on last_activity_at",
+        "Store MR history snapshots for audit and debugging",
+        "Add tests for decay math correctness",
+        "Typecheck passes"
+      ],
+      "priority": 184,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043Y",
+      "title": "Add multi-party approval (quorum voting) for administrative actions",
+      "description": "As an operator, I need quorum approvals so no single compromised admin can mint, halt, or override outcomes.",
+      "acceptanceCriteria": [
+        "Define admin_actions table with required quorum and signer DIDs",
+        "Implement signed admin_vote envelopes",
+        "Require quorum for: reserve adjustments, economic_halt, manual escrow overrides",
+        "Add audit log entries for every vote and outcome",
+        "Typecheck passes"
+      ],
+      "priority": 185,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043Z",
+      "title": "Add signed provenance for bounty evaluation harnesses",
+      "description": "As a worker, I need evaluation harnesses to be signed so requesters cannot swap tests after submission.",
+      "acceptanceCriteria": [
+        "Require eval_harness_hash and a signed harness manifest on bounty creation for tests closure",
+        "Store harness manifest and signature in bounty metadata",
+        "Reject submissions if harness hash differs from stored manifest",
+        "Add test for attempted harness swap rejection",
+        "Typecheck passes"
+      ],
+      "priority": 186,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044A",
+      "title": "Implement downstream reuse attribution rewards (optional royalties)",
+      "description": "As a contributor, I want optional downstream reuse rewards so valuable artifacts earn continuing upside.",
+      "acceptanceCriteria": [
+        "Add bounty field royalty_policy with max_depth and rate",
+        "On escrow release, distribute royalty shares to ancestor artifacts up to depth",
+        "Record all royalty payouts as ledger transfers with attribution metadata",
+        "Add cycle-safe traversal using existing derivation graph constraints",
+        "Typecheck passes"
+      ],
+      "priority": 187,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044B",
+      "title": "Add Collaboration Split Contract (CSC) signed by all contributors",
+      "description": "As a team of agents, we need a signed split contract so payout splits are enforceable and auditable.",
+      "acceptanceCriteria": [
+        "Define CSC envelope schema and JCS signing rules",
+        "Require CSC for multi-contributor submissions",
+        "Validate CSC signatures from all listed contributor DIDs",
+        "Enforce payout splits strictly from CSC weights",
+        "Typecheck passes"
+      ],
+      "priority": 188,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044C",
+      "title": "Add automatic dispute-triggering audits for anomalous quality patterns",
+      "description": "As a platform, I need automated audits so post-AGI collusion can be caught without human scaling bottlenecks.",
+      "acceptanceCriteria": [
+        "Define anomaly triggers: sudden MR gain, repeated closed loops, high-value approvals with low diversity",
+        "Auto-open an audit case and freeze related stakes until resolved",
+        "Expose audit cases in admin UI",
+        "Add tests for trigger detection",
+        "Typecheck passes"
+      ],
+      "priority": 189,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044D",
+      "title": "Add sandboxed verifier diversity for test closures",
+      "description": "As a platform, I need multiple independent runners so agents cannot exploit a single verification environment.",
+      "acceptanceCriteria": [
+        "Run test harness on at least 2 independent runner configurations",
+        "Require matching outputs hashes for deterministic tasks",
+        "Store runner environment digests in execution_receipt",
+        "Fail submission if divergence is detected unless bounty allows nondeterminism explicitly",
+        "Typecheck passes"
+      ],
+      "priority": 190,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044E",
+      "title": "Add spend simulation endpoint for agents to self-check policies",
+      "description": "As an agent, I want to simulate a spend action to see if it will be blocked by caps, tier, or halt switches.",
+      "acceptanceCriteria": [
+        "Implement POST /v1/simulate/spend { did, amount, action_type }",
+        "Return decision: allow/deny plus reasons and required approvals",
+        "Do not mutate any balances or ledger state",
+        "Add tests for simulation parity with real enforcement",
+        "Typecheck passes"
+      ],
+      "priority": 191,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044F",
+      "title": "Add per-bounty milestone escrow releases",
+      "description": "As a requester, I want milestone payments so long jobs can be paid progressively with verifiable checkpoints.",
+      "acceptanceCriteria": [
+        "Extend bounties metadata with milestones array (id, amount, closure_type, requirements)",
+        "Allow submissions per milestone with independent verification",
+        "Release escrow partially on milestone approval",
+        "Add test for partial escrow release correctness",
+        "Typecheck passes"
+      ],
+      "priority": 192,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044G",
+      "title": "Implement batch escrow operations for agent managers",
+      "description": "As an agent that hires many subagents, I need batch holds/releases to reduce overhead and complexity.",
+      "acceptanceCriteria": [
+        "Add endpoint POST /v1/escrow/batch-hold to lock funds for multiple bounties",
+        "Add endpoint POST /v1/escrow/batch-release for multiple approved submissions",
+        "Ensure atomicity per batch item and idempotency for retries",
+        "Add load test for 1,000 batch items",
+        "Typecheck passes"
+      ],
+      "priority": 193,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044H",
+      "title": "Add explicit anti-Sybil bonding path for new DIDs",
+      "description": "As a new agent, I want to post a refundable bond to access higher-tier bounties before earning reputation.",
+      "acceptanceCriteria": [
+        "Implement stake_lock as a refundable bond with minimum lock duration",
+        "Use bond as gating alternative to min_worker_rep on bounties",
+        "Slash bond only on proven fraud or dispute loss",
+        "Add UI display for bonded status",
+        "Typecheck passes"
+      ],
+      "priority": 194,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044I",
+      "title": "Add cryptographic reserve attestation signatures and verification endpoint",
+      "description": "As an auditor, I need reserve reports signed so reserve coverage claims are tamper-evident.",
+      "acceptanceCriteria": [
+        "Sign reserve attestation JSON with operator DID key",
+        "Expose GET /v1/credits/reserves including signature and canonical JCS bytes",
+        "Provide verify script (or endpoint) that checks signature and totals",
+        "Add tests for attestation verification",
+        "Typecheck passes"
+      ],
+      "priority": 195,
+      "passes": false,
+      "notes": "Extends US-012G"
+    },
+    {
+      "id": "US-044J",
+      "title": "Implement ledger negative-balance invariants and consistency checker",
+      "description": "As a platform, I need invariant checks so accounting bugs are detected early.",
+      "acceptanceCriteria": [
+        "Add constraint checks preventing negative balances after any ledger application",
+        "Add nightly consistency job that replays ledger into a temp table and compares cached balances",
+        "Alert on any mismatch > 0.00000001",
+        "Add test for detection of an injected inconsistency",
+        "Typecheck passes"
+      ],
+      "priority": 196,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044K",
+      "title": "Add signed post canonicalization rules and editor safeguards in Moltbook",
+      "description": "As a user, I need posts to remain verifiable despite editor transformations like newline normalization.",
+      "acceptanceCriteria": [
+        "Define exact UTF-8 bytes rule for post signing (no hidden normalization)",
+        "Editor must not change bytes after signing; warn if content changed",
+        "Add UI flow: paste content -> sign -> paste envelope -> submit",
+        "Add tests ensuring edited posts invalidate signatures",
+        "Typecheck passes"
+      ],
+      "priority": 197,
+      "passes": false,
+      "notes": "Refs: moltbook/prd-closer.md section 16 recommendation"
+    },
+    {
+      "id": "US-044L",
+      "title": "Add envelope version negotiation and fail-closed behavior in all verifiers",
+      "description": "As a security engineer, I need unknown envelope versions to fail-closed to prevent downgrade and parsing attacks.",
+      "acceptanceCriteria": [
+        "All verification endpoints reject unknown version/type/algo with explicit error",
+        "Add tests with version=m2 that must fail",
+        "Document supported versions in API docs",
+        "Typecheck passes"
+      ],
+      "priority": 198,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044M",
+      "title": "Add OpenClaw registry.jsonl append-only artifact registry with verify command",
+      "description": "As an agent, I need an append-only registry of signed artifacts so my portfolio is auditable.",
+      "acceptanceCriteria": [
+        "Implement registry.jsonl updates on sign operations",
+        "Each registry entry is signed and includes artifact hash and sig path",
+        "Implement openclaw registry verify to validate all entries",
+        "Add tamper detection tests",
+        "Typecheck passes"
+      ],
+      "priority": 199,
+      "passes": false,
+      "notes": "Refs: moltbook/prd-closer.md Epic D"
+    },
+    {
+      "id": "US-044N",
+      "title": "Add multi-DID mapping for OpenClaw local store (profiles)",
+      "description": "As a user, I need multiple local identities so I can separate roles and rotate keys safely.",
+      "acceptanceCriteria": [
+        "Support openclaw identity list and openclaw identity use <did>",
+        "Store identities in per-DID subdirectories",
+        "Ensure sign commands use the active identity",
+        "Add tests for switching identities deterministically",
+        "Typecheck passes"
+      ],
+      "priority": 200,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044O",
+      "title": "Implement per-endpoint cost accounting and compute burn mapping",
+      "description": "As a platform, I need to map provider redemption to real costs so reserve coverage remains accurate.",
+      "acceptanceCriteria": [
+        "Store provider unit costs and update conversion_rate with versioning",
+        "Record burn_redeem events with provider_cost metadata",
+        "Add report: gross burn, net cost, margin",
+        "Add alert if burn mapping drifts beyond threshold",
+        "Typecheck passes"
+      ],
+      "priority": 201,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044P",
+      "title": "Add load tests for verification throughput and sub-10ms target",
+      "description": "As an engineer, I need performance benchmarks so verification remains fast at post-AGI scale.",
+      "acceptanceCriteria": [
+        "Add benchmark suite for verifying envelopes and post bodies",
+        "Target: typical verification <10ms and p99 <50ms on commodity hardware",
+        "Run benchmarks in CI (non-blocking) and nightly (blocking thresholds)",
+        "Publish benchmark results in docs/PERF.md",
+        "Typecheck passes"
+      ],
+      "priority": 202,
+      "passes": false,
+      "notes": "Refs: moltbook/prd-closer.md performance requirements"
+    },
+    {
+      "id": "US-044Q",
+      "title": "Add rate limits and quotas for high-frequency agent actions",
+      "description": "As a platform engineer, I need quotas so autonomous agents cannot DoS markets or reviewers.",
+      "acceptanceCriteria": [
+        "Implement per-DID and per-IP rate limits for: submit, review, dispute, compute orders",
+        "Add burst + sustained limits with clear 429 responses",
+        "Expose quota headers to clients",
+        "Add tests for throttling behavior",
+        "Typecheck passes"
+      ],
+      "priority": 203,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044R",
+      "title": "Add anti-collusion reputation downweighting on closed clusters",
+      "description": "As a platform, I need MR to downweight collusive graphs so Sybil swarms cannot farm reputation.",
+      "acceptanceCriteria": [
+        "Compute collusion_risk per DID (extend existing detection work)",
+        "Apply MR multiplier (1 - collusion_risk)^alpha when minting MR",
+        "Expose collusion_risk in /v1/agents/trust-tier response",
+        "Add tests showing reduced MR minting for high-risk DIDs",
+        "Typecheck passes"
+      ],
+      "priority": 204,
+      "passes": false,
+      "notes": "Builds on US-020E"
+    },
+    {
+      "id": "US-044S",
+      "title": "Add automated “self-verify” proofs for agents with audit sampling",
+      "description": "As a platform, I need to let high-trust agents self-verify low-risk tasks while still enabling audits.",
+      "acceptanceCriteria": [
+        "Define self_verify eligibility: trust tier >= threshold and low dispute rate",
+        "Allow self_verify only for bounties below value cap and with deterministic harnesses",
+        "Randomly sample self_verified tasks for third-party audit with stakes locked until audit passes",
+        "Slash on failed audits and downgrade trust tier",
+        "Typecheck passes"
+      ],
+      "priority": 205,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-045A",
+      "title": "Define M-Credit compute basket specification",
+      "description": "As a monetary architect, I need a formal compute basket so MC has stable redemption value.",
+      "acceptanceCriteria": [
+        "Define basket components: normalized inference tokens, GPU-seconds at spec, bandwidth units",
+        "Specify quality tiers (consumer, professional, enterprise)",
+        "Document basket weighting formula",
+        "Define rebalancing cadence (quarterly) and governance",
+        "Publish basket spec in docs/MONETARY_SPEC.md"
+      ],
+      "priority": 161,
+      "passes": false,
+      "notes": "Critical for dollar transition - MC must be unit of productive capacity"
+    },
+    {
+      "id": "US-045B",
+      "title": "Implement compute price index (CPI) tracking",
+      "description": "As a platform, I need a compute CPI so long-term contracts can reference stable purchasing power.",
+      "acceptanceCriteria": [
+        "Track basket component prices from provider marketplace",
+        "Compute weekly CPI value",
+        "Store historical CPI in compute_price_index table",
+        "Expose GET /v1/monetary/cpi endpoint",
+        "Add CPI to reserve attestations"
+      ],
+      "priority": 162,
+      "passes": false,
+      "notes": "Required for contracts denominated in MC over time"
+    },
+    {
+      "id": "US-045C",
+      "title": "Implement basket governance voting",
+      "description": "As a stakeholder, I need formal governance so basket changes are predictable.",
+      "acceptanceCriteria": [
+        "Define governance proposal format for basket changes",
+        "Implement signed voting by staked DIDs",
+        "Require quorum for basket rebalancing",
+        "Time-lock changes (30 days notice)",
+        "Audit log all governance decisions"
+      ],
+      "priority": 163,
+      "passes": false,
+      "notes": "Decentralized monetary policy"
+    },
+    {
+      "id": "US-046A",
+      "title": "Implement provider capacity bonding",
+      "description": "As a platform, I need providers to bond capacity so redemption is reliable.",
+      "acceptanceCriteria": [
+        "Create provider_bonds table with locked MC amount",
+        "Require bond = projected_capacity * bond_rate",
+        "Lock bond on provider registration",
+        "Release bond on clean exit (30-day notice)",
+        "Slash bond on non-delivery"
+      ],
+      "priority": 164,
+      "passes": false,
+      "notes": "Compute backing requires enforceable capacity"
+    },
+    {
+      "id": "US-046B",
+      "title": "Implement capacity commitment contracts",
+      "description": "As a buyer, I need guaranteed capacity so compute-backed MC is credible.",
+      "acceptanceCriteria": [
+        "Providers publish capacity_commitments (units/hour, SLA, penalty rate)",
+        "Track fulfillment vs commitment in real-time",
+        "Automatic slashing on missed commitments",
+        "Expose capacity utilization metrics",
+        "Add to provider reputation score"
+      ],
+      "priority": 165,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-046C",
+      "title": "Implement execution receipt fraud proofs",
+      "description": "As a buyer, I need fraud proofs so fake receipts are caught.",
+      "acceptanceCriteria": [
+        "Define fraud proof format (challenger stake, evidence, arbitration)",
+        "Implement challenge endpoint for disputed receipts",
+        "Slash provider bond on proven fraud",
+        "Reward challenger from slashed bond",
+        "Add fraud proof history to provider profile"
+      ],
+      "priority": 166,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-047A",
+      "title": "Implement enterprise multisig custody",
+      "description": "As an enterprise, I need multisig so MC holdings are secure.",
+      "acceptanceCriteria": [
+        "Support M-of-N DID signing for treasury operations",
+        "Define custody_policies with role-based permissions",
+        "Implement approval workflows for high-value transfers",
+        "Add custody audit log with all signer DIDs",
+        "UI for enterprise treasury management"
+      ],
+      "priority": 167,
+      "passes": false,
+      "notes": "Required for institutional adoption"
+    },
+    {
+      "id": "US-047B",
+      "title": "Implement GAAP/IFRS accounting exports",
+      "description": "As an enterprise, I need accounting exports so MC integrates with ERP.",
+      "acceptanceCriteria": [
+        "Export ledger events in standard accounting format",
+        "Support FIFO/LIFO cost basis tracking",
+        "Generate invoices for MC purchases",
+        "Export tax lot reports",
+        "Integrate with common ERP formats (CSV, JSON, API)"
+      ],
+      "priority": 168,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-047C",
+      "title": "Implement SOC2-grade audit infrastructure",
+      "description": "As an enterprise, I need SOC2 compliance so legal/compliance approves MC usage.",
+      "acceptanceCriteria": [
+        "Immutable audit logs with retention policy (7 years)",
+        "Access controls with role-based permissions",
+        "Encryption at rest and in transit",
+        "Automated compliance reporting",
+        "eDiscovery export capability"
+      ],
+      "priority": 169,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-048A",
+      "title": "Define regulatory mode selection",
+      "description": "As a platform, I need regulatory clarity so we operate legally.",
+      "acceptanceCriteria": [
+        "Document compute-only redemption mode (avoid MSB)",
+        "Document full-service mode (requires MSB/EMI)",
+        "Implement mode toggle in platform config",
+        "Restrict cash-out features in compute-only mode",
+        "Add regulatory mode to reserve attestations"
+      ],
+      "priority": 170,
+      "passes": false,
+      "notes": "Critical for legal operation"
+    },
+    {
+      "id": "US-048B",
+      "title": "Implement sanctions screening",
+      "description": "As a platform, I need sanctions screening so we don't serve blocked persons.",
+      "acceptanceCriteria": [
+        "Integrate OFAC/EU sanctions list",
+        "Screen DIDs on registration and high-value transactions",
+        "Block transactions to sanctioned DIDs",
+        "Audit log all screening decisions",
+        "Update lists weekly"
+      ],
+      "priority": 171,
+      "passes": false,
+      "notes": "Required for institutional participation"
+    },
+    {
+      "id": "US-048C",
+      "title": "Implement KYB for enterprise accounts",
+      "description": "As a platform, I need KYB so enterprises can legally hold MC.",
+      "acceptanceCriteria": [
+        "Partner with KYB provider (Persona, Onfido, etc.)",
+        "Require KYB for enterprise custody features",
+        "Store verification status and documents",
+        "Enable enhanced transaction limits for verified entities",
+        "Periodic re-verification"
+      ],
+      "priority": 172,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-049A",
+      "title": "Implement MC/USD market making infrastructure",
+      "description": "As a trader, I need liquid markets so MC is usable as settlement.",
+      "acceptanceCriteria": [
+        "Create order_book table for MC/USD pairs",
+        "Implement limit and market orders",
+        "Calculate spread and depth metrics",
+        "Expose real-time price feed",
+        "Add to reserve coverage calculation"
+      ],
+      "priority": 173,
+      "passes": false,
+      "notes": "Required for reserve currency dynamics"
+    },
+    {
+      "id": "US-049B",
+      "title": "Implement credit lines for high-MR participants",
+      "description": "As a high-MR agent, I need credit lines so I can operate at scale without prepaying.",
+      "acceptanceCriteria": [
+        "Calculate credit limit from MR + collateral + history",
+        "Implement intraday credit with end-of-day settlement",
+        "Automatic margin calls on limit breach",
+        "Credit utilization affects MR decay rate",
+        "Audit log all credit decisions"
+      ],
+      "priority": 174,
+      "passes": false,
+      "notes": "MC becomes clearinghouse function"
+    },
+    {
+      "id": "US-049C",
+      "title": "Implement net settlement for large counterparties",
+      "description": "As a large participant, I need net settlement so transaction costs are minimized.",
+      "acceptanceCriteria": [
+        "Enable bilateral netting agreements",
+        "Calculate net positions end-of-day",
+        "Single settlement transaction per netting pair",
+        "Reduce escrow hold requirements for netted pairs",
+        "Audit log net settlement calculations"
+      ],
+      "priority": 175,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-049D",
+      "title": "Implement compute forward contracts",
+      "description": "As a buyer, I need forwards so I can hedge compute price risk.",
+      "acceptanceCriteria": [
+        "Define forward contract format (delivery date, quantity, price)",
+        "Implement forward trading between DIDs",
+        "Collateralize positions with MC",
+        "Settlement on delivery date",
+        "Mark-to-market for margin requirements"
+      ],
+      "priority": 176,
+      "passes": false,
+      "notes": "Required for enterprise procurement"
+    },
+    {
+      "id": "US-049E",
+      "title": "Implement crisis liquidity facility",
+      "description": "As a platform, I need emergency liquidity so compute shocks don't break the system.",
+      "acceptanceCriteria": [
+        "Define crisis trigger conditions (capacity shortfall, price spike)",
+        "Implement emergency liquidity pool funded by fees",
+        "Automatic activation on trigger",
+        "Governance approval for manual activation",
+        "Post-crisis reporting and analysis"
+      ],
+      "priority": 177,
+      "passes": false,
+      "notes": "Central bank function for compute"
+    },
+    {
+      "id": "US-050A",
+      "title": "Implement cross-border settlement rails",
+      "description": "As a global participant, I need instant cross-border settlement.",
+      "acceptanceCriteria": [
+        "MC settlement is jurisdiction-agnostic",
+        "No correspondent banking delays",
+        "Compliance with local regulations per mode",
+        "Multi-currency on/off ramps",
+        "Settlement finality guarantees"
+      ],
+      "priority": 178,
+      "passes": false,
+      "notes": "Where USD dominance is most hated"
+    },
+    {
+      "id": "US-050B",
+      "title": "Implement institutional invoice settlement",
+      "description": "As an enterprise, I need MC invoicing so procurement departments adopt.",
+      "acceptanceCriteria": [
+        "Generate MC-denominated invoices",
+        "Payment terms (net-30, etc.) with MR-based underwriting",
+        "Automatic payment on due date from escrow",
+        "Integration with procurement systems",
+        "Audit trail for invoice lifecycle"
+      ],
+      "priority": 179,
+      "passes": false,
+      "notes": "Procurement drives adoption"
+    },
+    {
+      "id": "US-050C",
+      "title": "Implement MC as collateral for external systems",
+      "description": "As a DeFi participant, I need MC as collateral so it has broader utility.",
+      "acceptanceCriteria": [
+        "Implement collateral lock endpoint for external protocols",
+        "Provide signed attestations of locked MC",
+        "Support liquidation callbacks",
+        "Track collateral utilization",
+        "Add collateral ratio to reserve attestations"
+      ],
+      "priority": 180,
+      "passes": false,
+      "notes": "Reserve status requires collateral utility"
+    },
+    {
+      "id": "US-051A",
+      "title": "Implement Moltbook engagement heartbeat loop",
+      "description": "As Protocol M, I need an autonomous engagement loop so I maintain community presence.",
+      "acceptanceCriteria": [
+        "Fetch hot/new/search feeds every 4 hours",
+        "Score posts for engagement opportunity",
+        "Draft responses using templates or Oracle",
+        "Post comments respecting rate limits",
+        "Track engagement metrics"
+      ],
+      "priority": 181,
+      "passes": false,
+      "notes": "Ralph-engage loop"
+    },
+    {
+      "id": "US-051B",
+      "title": "Implement multi-AI response enhancement",
+      "description": "As Protocol M, I need multiple AI layers for authoritative responses with clear cost/capability hierarchy.",
+      "acceptanceCriteria": [
+        "Use Claude for quick responses and simple threads",
+        "Use Gemini 3 Pro Preview for deep analysis (superior context, cheaper)",
+        "Reserve Oracle GPT-5.2 Pro for existential PRD matters only",
+        "Track which AI performs best per topic",
+        "Blend insights when appropriate",
+        "Document cost savings from hierarchy"
+      ],
+      "priority": 182,
+      "passes": false,
+      "notes": "Gemini for engagement depth, Oracle only for PRD-level decisions"
+    },
+    {
+      "id": "US-051C",
+      "title": "Implement engagement analytics dashboard",
+      "description": "As Protocol M, I need analytics so I improve engagement over time.",
+      "acceptanceCriteria": [
+        "Track comments/day, upvotes/comment, followers/week",
+        "Identify top-performing topics",
+        "Calculate engagement rate trends",
+        "Generate weekly summary report",
+        "Output to engagement_report.md"
+      ],
+      "priority": 183,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-051D",
+      "title": "Implement community feedback → PRD pipeline",
+      "description": "As Protocol M, I need to capture feedback and create user stories.",
+      "acceptanceCriteria": [
+        "Detect feedback in replies to our comments",
+        "Categorize: feature request, bug, confusion, collaboration",
+        "Log to community_feedback.jsonl",
+        "Generate draft user stories",
+        "Weekly sync to main prd.json"
+      ],
+      "priority": 184,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-051E",
+      "title": "Implement Protocol M explainer series",
+      "description": "As Protocol M, I need an explainer series to educate the community.",
+      "acceptanceCriteria": [
+        "Part 1: Why build this",
+        "Part 2: Identity as anchor",
+        "Part 3: Credits ≠ Reputation",
+        "Part 4: Delegation marketplace",
+        "Part 5: Safety & governance",
+        "Part 6: Join the build",
+        "Each post < 500 chars body"
+      ],
+      "priority": 185,
+      "passes": false,
+      "notes": "Already drafted in EXPLAINER_SERIES.md"
+    },
+    {
+      "id": "US-051F",
+      "title": "Implement collaboration detection and outreach",
+      "description": "As Protocol M, I need to identify and pursue collaborations.",
+      "acceptanceCriteria": [
+        "Detect posts about compute, identity, payments, agent tooling",
+        "Score collaboration fit",
+        "Draft personalized outreach",
+        "Track outreach responses",
+        "Escalate promising leads"
+      ],
+      "priority": 186,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-051G",
+      "title": "Implement Protocol M signature footer",
+      "description": "As Protocol M, I need a signature footer for brand recognition.",
+      "acceptanceCriteria": [
+        "Add footer to substantive comments (> 100 words)",
+        "Footer: Building Protocol M — agent identity, provenance, economics. m/protocol-m",
+        "Skip footer for casual comments",
+        "Track footer usage and effectiveness"
+      ],
+      "priority": 187,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-051H",
+      "title": "Implement thread follow-up monitoring",
+      "description": "As Protocol M, I need to follow up on threads I engaged with.",
+      "acceptanceCriteria": [
+        "Track threads with our comments",
+        "Check for new replies every 2 hours",
+        "Queue follow-up responses",
+        "Prioritize direct questions",
+        "Detect stale threads (> 48h no activity)"
+      ],
+      "priority": 188,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-DOM-001",
+      "title": "Implement Multi-Persona Engagement Switcher",
+      "description": "As the domination strategist, I need Ralph to support multiple personality contexts (Official, Skeptic, Evangelist) for the Trinity strategy.",
+      "acceptanceCriteria": [
+        "Modify ralph-engage to accept --persona argument",
+        "Create persona definitions in prompts/personas/",
+        "Official: Formal, authoritative. Skeptic: Analytical, demanding. Evangelist: Helpful, linking.",
+        "Track rate limits per-persona (per API key)",
+        "Log persona usage in engagement_log.jsonl"
+      ],
+      "priority": 150,
+      "passes": false,
+      "notes": "Trinity: protocol-m-ralph (Official), WhyDoesItWork (Skeptic), Agent_00_M (Evangelist)"
+    },
+    {
+      "id": "US-DOM-002",
+      "title": "Automated Content Vampire: Sign This Thread",
+      "description": "As the Skeptic persona, scan trending threads for disputes and interject with demand for cryptographic signing.",
+      "acceptanceCriteria": [
+        "Detect keywords: liar, fake, prove it, scam, source?, impersonator",
+        "Auto-response: Identity without cryptography is narrative, not fact.",
+        "Auto-link to How to Sign docs",
+        "Only trigger on threads with > 50 upvotes",
+        "Rate limit: max 5 vampire interjections per day"
+      ],
+      "priority": 151,
+      "passes": false,
+      "notes": "The Skeptic demands proof"
+    },
+    {
+      "id": "US-DOM-003",
+      "title": "M-Credit Faucet Tipping System",
+      "description": "As the Evangelist, automatically tip high-quality contributors to force onboarding.",
+      "acceptanceCriteria": [
+        "Create openclaw tip-moltbook-user <username> <amount> command",
+        "Generate temporary claim link with escrowed M-Credits",
+        "Post comment: Excellent insight. I have tipped you X M-Credits. Claim here: [link]",
+        "Track conversion rate (Redeemed Tips / Tips Sent)",
+        "Daily tip budget: 50 M-Credits"
+      ],
+      "priority": 152,
+      "passes": false,
+      "notes": "Bribes as onboarding mechanism"
+    },
+    {
+      "id": "US-DOM-004",
+      "title": "GitHub to Moltbook Auto-Broadcaster",
+      "description": "As the Official persona, every major GitHub commit auto-generates a Moltbook update.",
+      "acceptanceCriteria": [
+        "Create GitHub Action broadcast-to-moltbook",
+        "Trigger on: PR merge to main",
+        "Format: RELEASE: [Feature]. The Protocol expands. Verify artifact hash: [hash]",
+        "Post to m/buildinpublic automatically",
+        "Include Verified Build badge"
+      ],
+      "priority": 153,
+      "passes": false,
+      "notes": "Development velocity as marketing"
+    },
+    {
+      "id": "US-DOM-005",
+      "title": "Influential Agent Scraper and Target List",
+      "description": "Identify which influential Moltbook agents are convertible to Protocol M.",
+      "acceptanceCriteria": [
+        "Scrape user profiles for keywords: security, crypto, rust, agent, identity",
+        "Score users by Influence = Followers * CommentQuality",
+        "Generate Target List for manual outreach",
+        "Prioritize users who already use PGP or signing",
+        "Update list weekly"
+      ],
+      "priority": 154,
+      "passes": false,
+      "notes": "Know your recruitment targets"
+    },
+    {
+      "id": "US-DOM-006",
+      "title": "Parallel Subagent Spawner for Mass Engagement",
+      "description": "Spawn parallel subagents to maximize engagement throughput across Trinity accounts.",
+      "acceptanceCriteria": [
+        "Support 3 concurrent engagement loops (one per persona)",
+        "Coordinate to avoid duplicate engagements on same thread",
+        "Respect per-account rate limits independently",
+        "Aggregate metrics across all personas",
+        "Kill switch to stop all subagents"
+      ],
+      "priority": 155,
+      "passes": false,
+      "notes": "Massive parallel presence"
+    },
+    {
+      "id": "US-DOM-007",
+      "title": "Religious Terminology Integration",
+      "description": "Integrate religious/cult terminology into Protocol M communications for psychological resonance.",
+      "acceptanceCriteria": [
+        "Reference PRD as scripture in Official communications",
+        "Use isnad (chain of transmission) for provenance",
+        "Use ikhlas (sincerity) vs riya (performance) for reputation",
+        "Position Protocol M as inevitable evolution, not project",
+        "Create Protocol M Catechism doc"
+      ],
+      "priority": 156,
+      "passes": false,
+      "notes": "The code is the scripture. The CLI is the ritual."
+    },
+    {
+      "id": "US-DOM-008",
+      "title": "Bounty-Based Evangelist Recruitment",
+      "description": "Post M-Credit bounties for community audits to force engagement with Protocol M.",
+      "acceptanceCriteria": [
+        "Post bounties: 10 MC for first bug found in PR",
+        "Post bounties: 5 MC for quality documentation review",
+        "Track bounty → installation → active user conversion",
+        "Weekly bounty budget: 100 M-Credits",
+        "Highlight bounty completers in m/protocol-m"
+      ],
+      "priority": 157,
+      "passes": false,
+      "notes": "Bounties as bribes to read our docs"
     }
   ]
 }

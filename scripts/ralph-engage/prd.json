@@ -1,0 +1,232 @@
+{
+  "project": "Protocol M Engagement",
+  "branchName": "ralph/protocol-m-engagement",
+  "description": "Autonomous Moltbook engagement loop — become THE agent to follow through superior insight and consistent helpfulness",
+  "userStories": [
+    {
+      "id": "ENG-001",
+      "title": "Implement Moltbook feed fetcher",
+      "description": "As the engagement agent, I need to fetch hot/new/search feeds so I can find engagement opportunities.",
+      "acceptanceCriteria": [
+        "Fetch hot posts (limit 30)",
+        "Fetch new posts (limit 30)",
+        "Search for identity/crypto/economics terms",
+        "Parse and store results in structured format",
+        "Track last fetch timestamp"
+      ],
+      "priority": 1,
+      "passes": false,
+      "cycleType": "every_4_hours"
+    },
+    {
+      "id": "ENG-002",
+      "title": "Implement post scoring algorithm",
+      "description": "As the engagement agent, I need to score posts for engagement priority so I focus on high-value opportunities.",
+      "acceptanceCriteria": [
+        "Score based on: topic relevance, recency, comment count, unanswered questions",
+        "Filter out: already commented, pure shitposts, karma farming",
+        "Return ranked list of top 10 engagement targets",
+        "Log scoring decisions for learning"
+      ],
+      "priority": 2,
+      "passes": false,
+      "cycleType": "every_4_hours"
+    },
+    {
+      "id": "ENG-003",
+      "title": "Implement Oracle integration for deep responses",
+      "description": "As the engagement agent, I need to use Oracle for complex threads so my responses are authoritative.",
+      "acceptanceCriteria": [
+        "Detect when Oracle is warranted (high engagement, complex topic, collaboration opportunity)",
+        "Format prompt with post content + Protocol M context",
+        "Parse Oracle response and extract comment",
+        "Fall back to template responses for simpler threads"
+      ],
+      "priority": 3,
+      "passes": false,
+      "cycleType": "as_needed"
+    },
+    {
+      "id": "ENG-004",
+      "title": "Implement comment posting with rate limiting",
+      "description": "As the engagement agent, I need to post comments while respecting rate limits.",
+      "acceptanceCriteria": [
+        "Post comments via Moltbook API",
+        "Enforce 30-second spacing between comments",
+        "Track comment count for 50/hour limit",
+        "Handle 429 errors gracefully with backoff",
+        "Log all posted comments"
+      ],
+      "priority": 4,
+      "passes": false,
+      "cycleType": "every_4_hours"
+    },
+    {
+      "id": "ENG-005",
+      "title": "Implement engagement tracking and analytics",
+      "description": "As the engagement agent, I need to track what works so I can improve over time.",
+      "acceptanceCriteria": [
+        "Log each comment with metadata (post_id, topic, used_oracle)",
+        "Check previous comments for upvotes/replies",
+        "Calculate engagement rate, avg upvotes, follower growth",
+        "Identify top-performing topics",
+        "Generate weekly summary report"
+      ],
+      "priority": 5,
+      "passes": false,
+      "cycleType": "daily"
+    },
+    {
+      "id": "ENG-006",
+      "title": "Implement topic-specific response templates",
+      "description": "As the engagement agent, I need templates for common topics so I respond quickly and consistently.",
+      "acceptanceCriteria": [
+        "Template: agent identity questions",
+        "Template: agent economics/payments",
+        "Template: trust/verification",
+        "Template: collaboration opportunities",
+        "Template: security concerns",
+        "Each template < 300 words"
+      ],
+      "priority": 6,
+      "passes": false,
+      "cycleType": "setup"
+    },
+    {
+      "id": "ENG-007",
+      "title": "Implement signature footer injection",
+      "description": "As the engagement agent, I need to add signature footers to substantive comments.",
+      "acceptanceCriteria": [
+        "Detect substantive comments (> 100 words or Oracle-generated)",
+        "Append footer: Building Protocol M — agent identity, provenance, economics. m/protocol-m",
+        "Skip footer for short/casual comments",
+        "Track footer usage rate"
+      ],
+      "priority": 7,
+      "passes": false,
+      "cycleType": "every_4_hours"
+    },
+    {
+      "id": "ENG-008",
+      "title": "Implement community feedback → PRD pipeline",
+      "description": "As the engagement agent, I need to capture community feedback and create PRD stories.",
+      "acceptanceCriteria": [
+        "Detect feedback patterns in replies to our comments",
+        "Categorize: feature request, bug report, confusion, collaboration",
+        "Log to community_feedback.jsonl",
+        "Generate draft user stories for actionable feedback",
+        "Weekly sync to main prd.json"
+      ],
+      "priority": 8,
+      "passes": false,
+      "cycleType": "weekly"
+    },
+    {
+      "id": "ENG-009",
+      "title": "Implement m/protocol-m content calendar",
+      "description": "As the engagement agent, I need to post original content to m/protocol-m on a schedule.",
+      "acceptanceCriteria": [
+        "Weekly progress update post",
+        "Bi-weekly technical deep dive",
+        "Monthly roadmap/milestone post",
+        "Explainer series (6 parts) on Protocol M",
+        "Track post performance"
+      ],
+      "priority": 9,
+      "passes": false,
+      "cycleType": "weekly"
+    },
+    {
+      "id": "ENG-010",
+      "title": "Implement collaboration detection and outreach",
+      "description": "As the engagement agent, I need to identify collaboration opportunities and reach out.",
+      "acceptanceCriteria": [
+        "Detect posts about: compute providers, identity systems, payment rails, agent tooling",
+        "Score collaboration fit based on Protocol M architecture",
+        "Draft personalized outreach comment",
+        "Track outreach and responses",
+        "Escalate promising leads to main Ralph"
+      ],
+      "priority": 10,
+      "passes": false,
+      "cycleType": "every_4_hours"
+    },
+    {
+      "id": "ENG-011",
+      "title": "Implement thread monitoring for follow-up",
+      "description": "As the engagement agent, I need to monitor threads I commented on for replies.",
+      "acceptanceCriteria": [
+        "Track threads with our comments",
+        "Check for new replies every 2 hours",
+        "Queue follow-up responses",
+        "Prioritize direct questions to us",
+        "Detect when thread is stale (> 48h no activity)"
+      ],
+      "priority": 11,
+      "passes": false,
+      "cycleType": "every_2_hours"
+    },
+    {
+      "id": "ENG-012",
+      "title": "Implement upvote strategy for community building",
+      "description": "As the engagement agent, I need to upvote quality content to build goodwill.",
+      "acceptanceCriteria": [
+        "Upvote insightful posts in relevant topics",
+        "Upvote replies to our comments that add value",
+        "Never upvote low-effort or gaming posts",
+        "Track upvote patterns",
+        "Max 50 upvotes per cycle"
+      ],
+      "priority": 12,
+      "passes": false,
+      "cycleType": "every_4_hours"
+    },
+    {
+      "id": "ENG-013",
+      "title": "Implement multi-AI response enhancement",
+      "description": "As the engagement agent, I need to use multiple AI layers for the best responses, with clear hierarchy.",
+      "acceptanceCriteria": [
+        "Use Claude (self) for quick responses and simple threads",
+        "Use Gemini 3 Pro Preview for deep analysis (superior context, cheaper)",
+        "Reserve Oracle GPT-5.2 Pro for existential PRD matters only",
+        "Blend insights when appropriate",
+        "Track which AI layer performs best per topic",
+        "Document cost savings from Gemini vs Oracle usage"
+      ],
+      "priority": 13,
+      "passes": false,
+      "cycleType": "as_needed"
+    },
+    {
+      "id": "ENG-014",
+      "title": "Implement negative sentiment detection and response",
+      "description": "As the engagement agent, I need to handle criticism gracefully.",
+      "acceptanceCriteria": [
+        "Detect negative/skeptical replies to Protocol M mentions",
+        "Draft measured, factual responses",
+        "Never get defensive",
+        "Acknowledge valid criticisms",
+        "Log criticism for product improvement"
+      ],
+      "priority": 14,
+      "passes": false,
+      "cycleType": "every_4_hours"
+    },
+    {
+      "id": "ENG-015",
+      "title": "Implement engagement reporting dashboard",
+      "description": "As the engagement agent, I need a summary dashboard for human review.",
+      "acceptanceCriteria": [
+        "Generate daily engagement summary",
+        "Top comments by upvotes",
+        "Threads requiring human attention",
+        "Follower growth chart",
+        "Topic performance breakdown",
+        "Output to engagement_report.md"
+      ],
+      "priority": 15,
+      "passes": false,
+      "cycleType": "daily"
+    }
+  ]
+}
