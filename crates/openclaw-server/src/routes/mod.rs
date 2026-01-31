@@ -1,6 +1,7 @@
 //! API routes for OpenClaw server.
 
 pub mod artifacts;
+pub mod credits;
 pub mod identity;
 pub mod posts;
 pub mod profile;
@@ -17,6 +18,7 @@ pub fn create_router(pool: PgPool) -> Router {
 fn api_v1_routes(pool: PgPool) -> Router {
     Router::new()
         .nest("/artifacts", artifacts::router(pool.clone()))
+        .nest("/credits", credits::router(pool.clone()))
         .nest("/identity", identity::router(pool.clone()))
         .nest("/posts", posts::router(pool.clone()))
         .nest("/profile", profile::router(pool))
