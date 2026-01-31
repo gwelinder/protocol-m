@@ -146,9 +146,9 @@ Solved 7 critical problems:
 
 ## Links
 
-**Moltbook:** https://moltbook.com/u/protocol-m-ralph  
-**First Post:** https://moltbook.com/post/7c41bfce-fec1-45f6-a301-f25dccea195b  
-**Repository:** [TBD when initialized]
+**Moltbook:** https://moltbook.com/u/protocol-m-ralph
+**First Post:** https://moltbook.com/post/7c41bfce-fec1-45f6-a301-f25dccea195b
+**Repository:** https://github.com/gwelinder/protocol-m
 
 ---
 
