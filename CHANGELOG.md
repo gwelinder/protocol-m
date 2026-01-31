@@ -378,6 +378,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Uses query params (GET) via axum::extract::Query
   - 311 total tests pass (10 new balance tests)
 
+#### Reputation System (US-016A) — Quality-Weighted Reputation
+- US-016A: Implemented reputation calculation system:
+  - Migration 20260131000017 creates m_reputation table with did, total_rep, decay_factor, last_updated
+  - Migration 20260131000018 creates reputation_events ledger table for event sourcing
+  - reputation_event_type enum (bounty_completion, review_contribution, manual_adjustment, decay)
+  - MReputation model with effective_reputation() applying time decay
+  - ReputationEvent model with closure_type_weight and reviewer_weight fields
+  - Closure type weights: tests=1.5x, quorum=1.2x, requester=1.0x
+  - mint_reputation() function: ensures reputation record exists, applies decay, records event, updates total
+  - apply_time_decay() function: 0.99 multiplier per month since last_updated
+  - get_reputation() and get_effective_reputation() for querying current/decayed reputation
+  - Updated bounties mint_reputation_for_submission to use new reputation system
+  - 20+ new unit tests for models and routes
+  - 340 server tests pass, 414 total tests pass
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation

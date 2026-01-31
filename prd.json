@@ -1245,8 +1245,8 @@
         "Typecheck passes"
       ],
       "priority": 75,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created m_reputation table migration (migration 17) and reputation_events ledger table (migration 18); implemented MReputation and ReputationEvent models with weights (tests=1.5x, quorum=1.2x, requester=1.0x); mint_reputation function with closure_type weighting and optional reviewer_credibility; time decay of 0.99 per month; reputation routes module; updated bounties to use new reputation system; 20+ new unit tests"
     },
     {
       "id": "US-016B",

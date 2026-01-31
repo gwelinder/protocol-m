@@ -972,3 +972,24 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - Balance endpoint uses query params (GET) not request body - use axum::extract::Query
   - 311 total tests pass (10 new balance endpoint tests)
 ---
+
+## 2026-01-31 - US-016A
+- What was implemented: Reputation calculation system with closure-type weighting and time decay
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000017_create_m_reputation_table.sql` - New migration for m_reputation table (did PK, total_rep, decay_factor, last_updated)
+  - `crates/openclaw-server/migrations/20260131000018_create_reputation_events_table.sql` - New migration for reputation_events ledger (event sourcing)
+  - `crates/openclaw-server/src/models/m_reputation.rs` - MReputation and NewMReputation models with effective_reputation() and time decay helpers
+  - `crates/openclaw-server/src/models/reputation_event.rs` - ReputationEvent, NewReputationEvent, ReputationEventType with closure_type weights
+  - `crates/openclaw-server/src/routes/reputation.rs` - mint_reputation, apply_time_decay, get_reputation, get_effective_reputation functions
+  - `crates/openclaw-server/src/models.rs` - Added m_reputation and reputation_event module exports and re-exports
+  - `crates/openclaw-server/src/routes/mod.rs` - Added reputation module
+  - `crates/openclaw-server/src/routes/bounties.rs` - Updated mint_reputation_for_submission to use new reputation system
+- **Learnings for future iterations:**
+  - Use BigDecimal::from_str(&format!("{:.8}", weight)) instead of BigDecimal::try_from(f64) to avoid precision issues
+  - Closure type weights are constants: WEIGHT_TESTS=1.5, WEIGHT_QUORUM=1.2, WEIGHT_REQUESTER=1.0
+  - Time decay: 0.99^months multiplier applied on read (effective_reputation) or during mint (apply_time_decay)
+  - Reputation events use event sourcing: all changes are immutable ledger entries
+  - m_reputation table stores aggregated state; reputation_events stores full history
+  - FK from reputation_events to m_reputation with ON DELETE CASCADE
+  - 340 server tests pass, 414 total tests across all crates
+---
