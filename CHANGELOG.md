@@ -154,6 +154,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - "Signed" text (no checkmark) for valid_unbound status
   - Nothing rendered for none or invalid status
   - Hover tooltip showing truncated signer DID
+- US-011B: Created PostCard component with:
+  - VerifiedBadge integration positioned next to author name
+  - Author avatar, name, username, and timestamp display
+  - Post content with pre-wrap formatting
+  - Upvote and comment count buttons in footer
+  - Props for verification_status and verified_did
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
