@@ -18,5 +18,6 @@ fn api_v1_routes(pool: PgPool) -> Router {
     Router::new()
         .nest("/artifacts", artifacts::router(pool.clone()))
         .nest("/identity", identity::router(pool.clone()))
+        .nest("/posts", posts::router(pool.clone()))
         .nest("/profile", profile::router(pool))
 }

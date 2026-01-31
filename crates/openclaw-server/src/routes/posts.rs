@@ -1,13 +1,89 @@
 //! Post routes and signature verification logic.
 
-use crate::models::VerificationStatus;
+use crate::error::AppError;
+use crate::models::{Post, VerificationStatus};
 use anyhow::{anyhow, Context, Result};
+use axum::{extract::State, routing::post, Json, Router};
 use base64::prelude::*;
+use chrono::Utc;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use uuid::Uuid;
+
+/// Creates the posts router.
+pub fn router(pool: PgPool) -> Router {
+    Router::new()
+        .route("/", post(create_post))
+        .with_state(pool)
+}
+
+/// Request body for creating a post.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatePostRequest {
+    pub user_id: Uuid,
+    pub content: String,
+    /// Optional signature envelope for verification
+    pub signature_envelope: Option<serde_json::Value>,
+}
+
+/// Response for a created post.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatePostResponse {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub content: String,
+    pub verification_status: VerificationStatus,
+    pub verified_did: Option<String>,
+    pub created_at: String,
+}
+
+/// POST /api/v1/posts - Create a new post with optional signature verification.
+async fn create_post(
+    State(pool): State<PgPool>,
+    Json(req): Json<CreatePostRequest>,
+) -> Result<Json<CreatePostResponse>, AppError> {
+    // Verify signature if envelope is provided
+    let verification = if let Some(ref envelope) = req.signature_envelope {
+        verify_post_signature(&req.content, envelope, req.user_id, &pool).await
+    } else {
+        VerificationResult::none()
+    };
+
+    let now = Utc::now();
+    let post_id = Uuid::new_v4();
+
+    // Insert post into database
+    let post: Post = sqlx::query_as(
+        r#"
+        INSERT INTO posts (id, user_id, content, signature_envelope_json, verified_did, verification_status, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+        RETURNING *
+        "#,
+    )
+    .bind(post_id)
+    .bind(req.user_id)
+    .bind(&req.content)
+    .bind(&req.signature_envelope)
+    .bind(&verification.verified_did)
+    .bind(&verification.status)
+    .bind(now)
+    .fetch_one(&pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to create post: {}", e)))?;
+
+    Ok(Json(CreatePostResponse {
+        id: post.id,
+        user_id: post.user_id,
+        content: post.content,
+        verification_status: post.verification_status,
+        verified_did: post.verified_did,
+        created_at: post.created_at.to_rfc3339(),
+    }))
+}
 
 /// Result of post signature verification
 #[derive(Debug, Clone, Serialize, Deserialize)]
