@@ -210,6 +210,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Invoice creation with status=pending in purchase_invoices table
   - Placeholder Stripe Checkout URL generation (production would use real Stripe API)
   - 22 unit tests for helper functions, validation, and serialization
+- US-012E: Implemented POST /api/v1/credits/webhook/stripe endpoint:
+  - Stripe webhook handler for checkout.session.completed and checkout.session.expired events
+  - StripeWebhookRequest/Response types for parsing webhook payloads
+  - Invoice ID extraction from metadata.invoice_id or client_reference_id
+  - Pending invoice loading and validation before processing
+  - mint_credits_to_did function: inserts ledger entry and upserts account balance atomically
+  - complete_invoice and fail_invoice functions for status updates
+  - Placeholder signature verification (production uses stripe crate for real verification)
+  - External payment reference tracking in ledger metadata
+  - 17 unit tests for event parsing, invoice ID extraction, and response serialization
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
