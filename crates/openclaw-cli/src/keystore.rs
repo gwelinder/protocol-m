@@ -2,7 +2,7 @@
 
 use age::secrecy::SecretString;
 use anyhow::{Context, Result};
-use std::io::Write;
+use std::io::{Read, Write};
 
 /// Encrypts private key bytes with a passphrase using age encryption.
 ///
@@ -31,30 +31,37 @@ pub fn encrypt_key(key_bytes: &[u8], passphrase: &str) -> Result<Vec<u8>> {
     Ok(encrypted)
 }
 
+/// Decrypts private key bytes with a passphrase using age decryption.
+///
+/// # Arguments
+/// * `encrypted` - The encrypted key bytes (age format)
+/// * `passphrase` - The passphrase used during encryption
+///
+/// # Returns
+/// Decrypted key bytes, or error if passphrase is incorrect or data is corrupted
+pub fn decrypt_key(encrypted: &[u8], passphrase: &str) -> Result<Vec<u8>> {
+    let decryptor = match age::Decryptor::new(encrypted)
+        .context("Failed to parse encrypted data")?
+    {
+        age::Decryptor::Passphrase(d) => d,
+        _ => anyhow::bail!("Encrypted data was not passphrase-protected"),
+    };
+
+    let mut decrypted = vec![];
+    let mut reader = decryptor
+        .decrypt(&SecretString::from(passphrase.to_string()), None)
+        .map_err(|_| anyhow::anyhow!("Incorrect passphrase"))?;
+
+    reader
+        .read_to_end(&mut decrypted)
+        .context("Failed to read decrypted bytes")?;
+
+    Ok(decrypted)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Read;
-
-    fn decrypt_key(encrypted: &[u8], passphrase: &str) -> Result<Vec<u8>> {
-        let decryptor = match age::Decryptor::new(encrypted)
-            .context("Failed to create age decryptor")?
-        {
-            age::Decryptor::Passphrase(d) => d,
-            _ => anyhow::bail!("Unexpected decryptor type"),
-        };
-
-        let mut decrypted = vec![];
-        let mut reader = decryptor
-            .decrypt(&SecretString::from(passphrase.to_string()), None)
-            .context("Failed to decrypt with passphrase")?;
-
-        reader
-            .read_to_end(&mut decrypted)
-            .context("Failed to read decrypted bytes")?;
-
-        Ok(decrypted)
-    }
 
     #[test]
     fn test_encrypt_decrypt_roundtrip() {
@@ -91,5 +98,26 @@ mod tests {
 
         // age uses random salt, so each encryption should produce different output
         assert_ne!(encrypted1, encrypted2);
+    }
+
+    #[test]
+    fn test_decrypt_with_wrong_passphrase_fails() {
+        let key_bytes: [u8; 32] = [0x42; 32];
+        let correct_passphrase = "correct-passphrase";
+        let wrong_passphrase = "wrong-passphrase";
+
+        // Encrypt with the correct passphrase
+        let encrypted = encrypt_key(&key_bytes, correct_passphrase)
+            .expect("Encryption should succeed");
+
+        // Attempt to decrypt with the wrong passphrase
+        let result = decrypt_key(&encrypted, wrong_passphrase);
+
+        // Decryption should fail
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Incorrect passphrase"));
     }
 }
