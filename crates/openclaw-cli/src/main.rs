@@ -49,6 +49,11 @@ enum Commands {
         #[command(subcommand)]
         action: ManifestAction,
     },
+    /// Manage policy settings
+    Policy {
+        #[command(subcommand)]
+        action: PolicyAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -83,6 +88,18 @@ enum ManifestAction {
     },
 }
 
+#[derive(Subcommand)]
+enum PolicyAction {
+    /// Set a policy from a JSON file
+    Set {
+        /// Path to the policy JSON file
+        #[arg(short, long)]
+        file: String,
+    },
+    /// Show current policy
+    Show,
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -91,6 +108,7 @@ fn main() {
         Commands::Sign { path, meta, dry_run } => handle_sign(&path, meta, dry_run),
         Commands::Verify { path, sig } => handle_verify(&path, sig.as_deref()),
         Commands::Manifest { action } => handle_manifest(action),
+        Commands::Policy { action } => handle_policy(action),
     };
 
     if let Err(e) = result {
@@ -396,4 +414,143 @@ fn scan_signature_files(dir: &std::path::Path) -> anyhow::Result<Vec<std::path::
     sig_files.sort();
 
     Ok(sig_files)
+}
+
+fn handle_policy(action: PolicyAction) -> anyhow::Result<()> {
+    match action {
+        PolicyAction::Set { file } => handle_policy_set(&file),
+        PolicyAction::Show => handle_policy_show(),
+    }
+}
+
+fn handle_policy_set(file_path: &str) -> anyhow::Result<()> {
+    use colored::Colorize;
+
+    // Read the policy file
+    let policy_content = std::fs::read_to_string(file_path)
+        .map_err(|e| anyhow::anyhow!("Failed to read policy file '{}': {}", file_path, e))?;
+
+    // Validate the policy
+    let policy = policy::validate_policy(&policy_content)?;
+
+    // Get the policy directory path (~/.openclaw/)
+    let policy_dir = get_openclaw_dir()?;
+
+    // Create directory if it doesn't exist
+    if !policy_dir.exists() {
+        std::fs::create_dir_all(&policy_dir)
+            .map_err(|e| anyhow::anyhow!("Failed to create directory '{}': {}", policy_dir.display(), e))?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&policy_dir, std::fs::Permissions::from_mode(0o700))?;
+        }
+    }
+
+    // Write the validated policy to ~/.openclaw/policy.json
+    let output_path = policy_dir.join("policy.json");
+
+    // Serialize the validated policy (ensures consistent formatting)
+    let json = serde_json::to_string_pretty(&policy)?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(&output_path, &json)?;
+        std::fs::set_permissions(&output_path, std::fs::Permissions::from_mode(0o600))?;
+    }
+
+    #[cfg(not(unix))]
+    {
+        std::fs::write(&output_path, &json)?;
+    }
+
+    // Print success message with policy summary
+    println!("{} Policy set successfully!", "✓".green().bold());
+    println!();
+    println!("  Location: {}", output_path.display());
+    println!();
+    println!("  {}", "Policy Summary:".bold());
+    for line in policy.summary().lines() {
+        println!("    {}", line);
+    }
+
+    Ok(())
+}
+
+fn handle_policy_show() -> anyhow::Result<()> {
+    use colored::Colorize;
+
+    // Get the policy file path
+    let policy_path = get_openclaw_dir()?.join("policy.json");
+
+    if !policy_path.exists() {
+        println!("{}", "No policy configured.".yellow());
+        println!();
+        println!("Set a policy with: openclaw policy set --file <policy.json>");
+        return Ok(());
+    }
+
+    // Read and validate the policy
+    let content = std::fs::read_to_string(&policy_path)
+        .map_err(|e| anyhow::anyhow!("Failed to read policy file: {}", e))?;
+
+    let policy = policy::validate_policy(&content)?;
+
+    println!("{} Current Policy", "✓".green().bold());
+    println!();
+    println!("  Location: {}", policy_path.display());
+    println!();
+    println!("  {}", "Policy Summary:".bold());
+    for line in policy.summary().lines() {
+        println!("    {}", line);
+    }
+
+    if !policy.allowed_delegates.is_empty() {
+        println!();
+        println!("  {}", "Allowed Delegates:".bold());
+        for delegate in &policy.allowed_delegates {
+            println!("    - {}", truncate_did(delegate));
+        }
+    }
+
+    if !policy.approval_tiers.is_empty() {
+        println!();
+        println!("  {}", "Approval Tiers:".bold());
+        for (i, tier) in policy.approval_tiers.iter().enumerate() {
+            println!("    {}. Threshold: {} credits", i + 1, tier.threshold);
+            println!("       Requires approval: {}", tier.require_approval);
+            println!("       Timeout: {} hours", tier.timeout_hours);
+            if !tier.approvers.is_empty() {
+                println!("       Approvers: {} DID(s)", tier.approvers.len());
+            }
+        }
+    }
+
+    if let Some(ref contact) = policy.emergency_contact {
+        println!();
+        println!("  {}", "Emergency Contact:".bold());
+        if let Some(ref email) = contact.email {
+            println!("    Email: {}", email);
+        }
+        if let Some(ref webhook) = contact.webhook {
+            println!("    Webhook: {}", webhook);
+        }
+    }
+
+    Ok(())
+}
+
+/// Get the OpenClaw directory path (~/.openclaw/)
+fn get_openclaw_dir() -> anyhow::Result<std::path::PathBuf> {
+    #[cfg(unix)]
+    let home = std::env::var("HOME")
+        .map_err(|_| anyhow::anyhow!("HOME environment variable not set"))?;
+
+    #[cfg(windows)]
+    let home = std::env::var("USERPROFILE")
+        .map_err(|_| anyhow::anyhow!("USERPROFILE environment variable not set"))?;
+
+    Ok(std::path::PathBuf::from(home).join(".openclaw"))
 }
