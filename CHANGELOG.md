@@ -92,6 +92,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-008D: Added signature verification over challenge bytes
 - US-008D: Added transaction handling for atomic binding creation and challenge consumption
 - US-008D: Added 8 unit tests for signature verification and validation
+- US-008E: Added rate limiting for challenge endpoint (5 challenges per user per hour)
+- US-008E: Added TooManyRequests error variant with Retry-After header support
+- US-008E: Added 2 unit tests for rate limit configuration and result struct
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

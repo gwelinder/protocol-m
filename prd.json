@@ -731,8 +731,8 @@
         "Typecheck passes"
       ],
       "priority": 44,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented check_challenge_rate_limit with sliding window, TooManyRequests error with Retry-After header; 130 tests pass"
     },
     {
       "id": "US-008F",
