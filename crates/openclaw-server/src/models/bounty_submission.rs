@@ -37,6 +37,8 @@ pub struct BountySubmission {
     pub status: SubmissionStatus,
     /// When this submission was created.
     pub created_at: DateTime<Utc>,
+    /// Reference to the registered artifact in ClawdHub (set on approval).
+    pub artifact_id: Option<Uuid>,
 }
 
 /// Data required to create a new bounty submission.
@@ -91,6 +93,16 @@ impl BountySubmission {
         self.execution_receipt
             .as_ref()
             .and_then(|r| r.get("test_results"))
+    }
+
+    /// Check if the submission has a registered artifact.
+    pub fn has_artifact(&self) -> bool {
+        self.artifact_id.is_some()
+    }
+
+    /// Get the artifact ID if registered.
+    pub fn artifact_id(&self) -> Option<Uuid> {
+        self.artifact_id
     }
 }
 
@@ -207,12 +219,14 @@ mod tests {
             execution_receipt: None,
             status: SubmissionStatus::Pending,
             created_at: now,
+            artifact_id: None,
         };
 
         assert!(submission.is_pending());
         assert!(!submission.is_approved());
         assert!(!submission.is_rejected());
         assert!(!submission.has_execution_receipt());
+        assert!(!submission.has_artifact());
     }
 
     #[test]
@@ -235,6 +249,7 @@ mod tests {
             })),
             status: SubmissionStatus::Pending,
             created_at: now,
+            artifact_id: None,
         };
 
         assert!(submission.has_execution_receipt());
@@ -258,10 +273,50 @@ mod tests {
             execution_receipt: None,
             status: SubmissionStatus::Pending,
             created_at: now,
+            artifact_id: None,
         };
 
         assert_eq!(submission.execution_harness_hash(), None);
         assert_eq!(submission.all_tests_passed(), None);
         assert!(submission.test_results().is_none());
+    }
+
+    #[test]
+    fn test_submission_with_artifact_id() {
+        let now = Utc::now();
+        let artifact_id = Uuid::new_v4();
+        let submission = BountySubmission {
+            id: Uuid::new_v4(),
+            bounty_id: Uuid::new_v4(),
+            submitter_did: "did:key:z6MkTest".to_string(),
+            artifact_hash: "abc123".to_string(),
+            signature_envelope: serde_json::json!({}),
+            execution_receipt: None,
+            status: SubmissionStatus::Approved,
+            created_at: now,
+            artifact_id: Some(artifact_id),
+        };
+
+        assert!(submission.has_artifact());
+        assert_eq!(submission.artifact_id(), Some(artifact_id));
+    }
+
+    #[test]
+    fn test_submission_without_artifact_id() {
+        let now = Utc::now();
+        let submission = BountySubmission {
+            id: Uuid::new_v4(),
+            bounty_id: Uuid::new_v4(),
+            submitter_did: "did:key:z6MkTest".to_string(),
+            artifact_hash: "abc123".to_string(),
+            signature_envelope: serde_json::json!({}),
+            execution_receipt: None,
+            status: SubmissionStatus::Pending,
+            created_at: now,
+            artifact_id: None,
+        };
+
+        assert!(!submission.has_artifact());
+        assert_eq!(submission.artifact_id(), None);
     }
 }

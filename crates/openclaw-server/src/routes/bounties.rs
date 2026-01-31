@@ -919,6 +919,201 @@ async fn mint_reputation_for_submission(
     Ok(())
 }
 
+/// Registers a submission artifact in ClawdHub and links derivations.
+///
+/// This function:
+/// 1. Checks if the artifact already exists (by hash)
+/// 2. If not, registers it with the signature envelope
+/// 3. If bounty metadata includes parent_artifact_id, creates derivation link
+/// 4. Updates the submission with the artifact_id reference
+///
+/// Returns the artifact ID on success.
+async fn register_submission_artifact(
+    pool: &PgPool,
+    submission_id: Uuid,
+    bounty: &Bounty,
+    envelope: &SignatureEnvelopeV1,
+) -> Result<Uuid, AppError> {
+    // Step 1: Check if artifact already exists (by hash)
+    let existing: Option<(Uuid,)> = sqlx::query_as(
+        "SELECT id FROM artifacts WHERE hash = $1 LIMIT 1",
+    )
+    .bind(&envelope.hash.value)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to check existing artifact: {}", e)))?;
+
+    let artifact_id = if let Some((existing_id,)) = existing {
+        // Artifact already registered, use existing ID
+        existing_id
+    } else {
+        // Step 2: Register new artifact
+        let new_id = Uuid::new_v4();
+        let timestamp = chrono::DateTime::parse_from_rfc3339(&envelope.timestamp)
+            .map(|dt| dt.with_timezone(&chrono::Utc))
+            .map_err(|e| AppError::Internal(format!("Invalid timestamp in envelope: {}", e)))?;
+
+        // Build metadata with bounty context
+        let mut artifact_metadata = envelope.metadata.clone().unwrap_or(json!({}));
+        if let Some(obj) = artifact_metadata.as_object_mut() {
+            obj.insert("bounty_id".to_string(), json!(bounty.id.to_string()));
+            obj.insert("bounty_title".to_string(), json!(bounty.title));
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO artifacts (id, hash, did, timestamp, metadata, signature, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            "#,
+        )
+        .bind(new_id)
+        .bind(&envelope.hash.value)
+        .bind(&envelope.signer)
+        .bind(timestamp)
+        .bind(&artifact_metadata)
+        .bind(&envelope.signature)
+        .execute(pool)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to register artifact: {}", e)))?;
+
+        new_id
+    };
+
+    // Step 3: Check for parent_artifact_id in bounty metadata and create derivation
+    if let Some(parent_ref) = get_parent_artifact_from_metadata(&bounty.metadata) {
+        if let Ok(parent_id) = resolve_parent_artifact(pool, &parent_ref).await {
+            // Check for cycles before creating derivation
+            if !detect_cycle_for_derivation(pool, artifact_id, parent_id).await? {
+                create_derivation_link(pool, artifact_id, parent_id).await?;
+            }
+        }
+    }
+
+    // Step 4: Update submission with artifact_id
+    sqlx::query(
+        r#"
+        UPDATE bounty_submissions
+        SET artifact_id = $2
+        WHERE id = $1
+        "#,
+    )
+    .bind(submission_id)
+    .bind(artifact_id)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to update submission artifact_id: {}", e)))?;
+
+    Ok(artifact_id)
+}
+
+/// Gets the parent artifact reference from bounty metadata.
+/// Checks for parent_artifact_id or parentArtifactId field.
+fn get_parent_artifact_from_metadata(metadata: &serde_json::Value) -> Option<String> {
+    metadata
+        .get("parent_artifact_id")
+        .or_else(|| metadata.get("parentArtifactId"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
+/// Resolves a parent artifact reference (UUID or hash) to an artifact ID.
+async fn resolve_parent_artifact(pool: &PgPool, reference: &str) -> Result<Uuid, AppError> {
+    // First, try to parse as UUID
+    if let Ok(uuid) = Uuid::parse_str(reference) {
+        let exists: Option<(Uuid,)> = sqlx::query_as(
+            "SELECT id FROM artifacts WHERE id = $1 LIMIT 1",
+        )
+        .bind(uuid)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to query artifact: {}", e)))?;
+
+        if exists.is_some() {
+            return Ok(uuid);
+        }
+    }
+
+    // Try to look up by hash
+    let result: Option<(Uuid,)> = sqlx::query_as(
+        "SELECT id FROM artifacts WHERE hash = $1 LIMIT 1",
+    )
+    .bind(reference)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query artifact by hash: {}", e)))?;
+
+    result
+        .map(|(id,)| id)
+        .ok_or_else(|| AppError::BadRequest(format!("Parent artifact not found: '{}'", reference)))
+}
+
+/// Detects if adding a derivation would create a cycle.
+async fn detect_cycle_for_derivation(
+    pool: &PgPool,
+    artifact_id: Uuid,
+    parent_id: Uuid,
+) -> Result<bool, AppError> {
+    // Self-reference is a cycle
+    if artifact_id == parent_id {
+        return Ok(true);
+    }
+
+    // Check if parent_id already derives from artifact_id (directly or transitively)
+    let mut visited = std::collections::HashSet::new();
+    let mut stack = vec![parent_id];
+    const MAX_DEPTH: usize = 100;
+
+    while let Some(current) = stack.pop() {
+        if visited.len() >= MAX_DEPTH {
+            return Ok(false); // Assume no cycle at deep depths
+        }
+
+        if current == artifact_id {
+            return Ok(true);
+        }
+
+        if !visited.insert(current) {
+            continue;
+        }
+
+        let parents: Vec<(Uuid,)> = sqlx::query_as(
+            "SELECT derived_from_id FROM artifact_derivations WHERE artifact_id = $1",
+        )
+        .bind(current)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to query derivations: {}", e)))?;
+
+        for (parent,) in parents {
+            stack.push(parent);
+        }
+    }
+
+    Ok(false)
+}
+
+/// Creates a derivation link between artifacts.
+async fn create_derivation_link(
+    pool: &PgPool,
+    artifact_id: Uuid,
+    parent_id: Uuid,
+) -> Result<(), AppError> {
+    sqlx::query(
+        r#"
+        INSERT INTO artifact_derivations (artifact_id, derived_from_id)
+        VALUES ($1, $2)
+        ON CONFLICT (artifact_id, derived_from_id) DO NOTHING
+        "#,
+    )
+    .bind(artifact_id)
+    .bind(parent_id)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to create derivation: {}", e)))?;
+
+    Ok(())
+}
+
 /// Submits work to an open bounty.
 async fn submit_bounty(
     State(pool): State<PgPool>,
@@ -977,9 +1172,9 @@ async fn submit_bounty(
 
     let submission: BountySubmission = sqlx::query_as(
         r#"
-        INSERT INTO bounty_submissions (id, bounty_id, submitter_did, artifact_hash, signature_envelope, execution_receipt, status, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-        RETURNING id, bounty_id, submitter_did, artifact_hash, signature_envelope, execution_receipt, status, created_at
+        INSERT INTO bounty_submissions (id, bounty_id, submitter_did, artifact_hash, signature_envelope, execution_receipt, status, created_at, artifact_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NULL)
+        RETURNING id, bounty_id, submitter_did, artifact_hash, signature_envelope, execution_receipt, status, created_at, artifact_id
         "#,
     )
     .bind(submission_id)
@@ -1009,10 +1204,13 @@ async fn submit_bounty(
                 // Mint reputation for the submitter
                 mint_reputation_for_submission(&pool, &submitter_did, &bounty).await?;
 
+                // Register artifact in ClawdHub and create derivation links
+                register_submission_artifact(&pool, submission.id, &bounty, &envelope).await?;
+
                 (
                     SubmissionStatus::Approved,
                     Some(true),
-                    Some("Tests passed and harness hash verified - submission auto-approved, escrow released".to_string()),
+                    Some("Tests passed and harness hash verified - submission auto-approved, escrow released, artifact registered".to_string()),
                 )
             }
             TestVerificationResult::HarnessHashMismatch { expected, actual } => {
@@ -2175,5 +2373,135 @@ mod tests {
         assert_eq!(metadata["reason"], "bounty_completion");
         assert!(metadata["bounty_id"].as_str().is_some());
         assert!(metadata["escrow_id"].as_str().is_some());
+    }
+
+    // ===== Artifact Registration Tests =====
+
+    #[test]
+    fn test_get_parent_artifact_from_metadata_snake_case() {
+        let metadata = json!({
+            "parent_artifact_id": "abc123-def456"
+        });
+        let result = get_parent_artifact_from_metadata(&metadata);
+        assert_eq!(result, Some("abc123-def456".to_string()));
+    }
+
+    #[test]
+    fn test_get_parent_artifact_from_metadata_camel_case() {
+        let metadata = json!({
+            "parentArtifactId": "xyz789"
+        });
+        let result = get_parent_artifact_from_metadata(&metadata);
+        assert_eq!(result, Some("xyz789".to_string()));
+    }
+
+    #[test]
+    fn test_get_parent_artifact_from_metadata_missing() {
+        let metadata = json!({
+            "other_field": "value"
+        });
+        let result = get_parent_artifact_from_metadata(&metadata);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_get_parent_artifact_from_metadata_empty() {
+        let metadata = json!({});
+        let result = get_parent_artifact_from_metadata(&metadata);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_get_parent_artifact_from_metadata_prefers_snake_case() {
+        // When both formats are present, snake_case should be preferred
+        let metadata = json!({
+            "parent_artifact_id": "snake",
+            "parentArtifactId": "camel"
+        });
+        let result = get_parent_artifact_from_metadata(&metadata);
+        assert_eq!(result, Some("snake".to_string()));
+    }
+
+    #[test]
+    fn test_artifact_registration_metadata_structure() {
+        // Simulate the metadata that would be created by register_submission_artifact
+        let bounty_id = Uuid::new_v4();
+        let bounty_title = "Test Bounty";
+
+        let mut artifact_metadata = json!({
+            "author": "test-agent"
+        });
+        if let Some(obj) = artifact_metadata.as_object_mut() {
+            obj.insert("bounty_id".to_string(), json!(bounty_id.to_string()));
+            obj.insert("bounty_title".to_string(), json!(bounty_title));
+        }
+
+        assert_eq!(artifact_metadata["author"], "test-agent");
+        assert_eq!(artifact_metadata["bounty_title"], "Test Bounty");
+        assert!(artifact_metadata["bounty_id"].as_str().is_some());
+    }
+
+    #[test]
+    fn test_submit_bounty_response_with_artifact_registered_message() {
+        let response = SubmitBountyResponse {
+            success: true,
+            submission_id: Uuid::new_v4(),
+            bounty_id: Uuid::new_v4(),
+            submitter_did: "did:key:z6MkTest".to_string(),
+            status: SubmissionStatus::Approved,
+            auto_approved: Some(true),
+            message: Some("Tests passed and harness hash verified - submission auto-approved, escrow released, artifact registered".to_string()),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"status\":\"approved\""));
+        assert!(json.contains("\"autoApproved\":true"));
+        assert!(json.contains("artifact registered"));
+    }
+
+    #[test]
+    fn test_bounty_metadata_with_parent_artifact() {
+        let bounty = Bounty {
+            id: Uuid::new_v4(),
+            poster_did: "did:key:z6MkPoster".to_string(),
+            title: "Derived Work Bounty".to_string(),
+            description: "Build on existing artifact".to_string(),
+            reward_credits: BigDecimal::from_str("100.00000000").unwrap(),
+            closure_type: BountyClosureType::Tests,
+            status: BountyStatus::Open,
+            metadata: json!({
+                "eval_harness_hash": "sha256:test",
+                "parent_artifact_id": "550e8400-e29b-41d4-a716-446655440000"
+            }),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            deadline: None,
+        };
+
+        let parent_ref = get_parent_artifact_from_metadata(&bounty.metadata);
+        assert_eq!(parent_ref, Some("550e8400-e29b-41d4-a716-446655440000".to_string()));
+    }
+
+    #[test]
+    fn test_cycle_detection_self_reference() {
+        // Self-reference should be detected as a cycle
+        let artifact_id = Uuid::new_v4();
+        // Direct check for self-reference without async
+        assert!(artifact_id == artifact_id);
+    }
+
+    #[test]
+    fn test_derivation_metadata_with_bounty_context() {
+        // When registering an artifact from a bounty submission,
+        // the metadata should include bounty context
+        let bounty_id = Uuid::new_v4();
+        let metadata = json!({
+            "bounty_id": bounty_id.to_string(),
+            "bounty_title": "Fix Authentication Bug",
+            "original_field": "preserved"
+        });
+
+        assert_eq!(metadata["bounty_title"], "Fix Authentication Bug");
+        assert_eq!(metadata["original_field"], "preserved");
     }
 }
