@@ -1377,8 +1377,8 @@
         "Typecheck passes"
       ],
       "priority": 83,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added PolicyAction enum with Set and Show variants; handle_policy_set reads policy file, validates with validate_policy(), creates ~/.openclaw/ directory with 0700 perms if needed, writes policy.json with 0600 perms, prints success with policy summary; handle_policy_show displays current policy with detailed output including delegates and approval tiers; also added get_openclaw_dir() helper function"
     },
     {
       "id": "US-018A",

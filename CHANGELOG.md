@@ -468,6 +468,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Policy::minimal() and Policy::summary() helpers
   - 20 unit tests covering valid/invalid cases
   - 38 CLI tests pass, 392+ server tests pass
+- US-017C: Implemented policy set command:
+  - Added PolicyAction enum (Set, Show) and Commands::Policy variant
+  - handle_policy_set(): reads file, validates with validate_policy(), writes to ~/.openclaw/policy.json with 0600 perms
+  - handle_policy_show(): displays current policy with detailed output (delegates, approval tiers, emergency contact)
+  - get_openclaw_dir() helper for consistent path resolution
+  - Creates ~/.openclaw/ directory with 0700 perms if it doesn't exist
+  - 38 CLI tests pass, all typecheck passes
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

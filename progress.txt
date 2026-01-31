@@ -1112,3 +1112,16 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - 20 new policy tests cover: minimal/full policy, invalid JSON, wrong version, negative values, invalid DIDs, empty tiers
   - 38 CLI tests pass total; 392+ server tests pass
 ---
+
+## 2026-01-31 - US-017C
+- What was implemented: Policy set command for CLI to configure agent spending policies
+- Files changed:
+  - `crates/openclaw-cli/src/main.rs` - Added PolicyAction enum (Set, Show), handle_policy(), handle_policy_set(), handle_policy_show(), get_openclaw_dir() functions
+- **Learnings for future iterations:**
+  - Use get_openclaw_dir() helper for consistent ~/.openclaw/ path resolution across commands
+  - Policy files should be written with 0600 permissions for security (sensitive spending limits)
+  - Directory creation (0700) should be handled if ~/.openclaw/ doesn't exist yet
+  - The policy show command provides detailed output including approval tiers and delegates
+  - Pattern: read file → validate → write to standard location with secure permissions → print summary
+  - Reuse truncate_did() for displaying delegate DIDs in show command
+---
