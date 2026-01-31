@@ -2,8 +2,21 @@
 
 use age::secrecy::SecretString;
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
+use std::fs;
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+/// Identity metadata stored in identity.json
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IdentityInfo {
+    /// DID of this identity (did:key:z...)
+    pub did: String,
+    /// Timestamp when the identity was created (ISO 8601)
+    pub created_at: String,
+    /// Type of key algorithm used
+    pub key_type: String,
+}
 
 /// Expected permission modes for identity files (Unix only)
 #[cfg(unix)]
@@ -123,6 +136,196 @@ pub fn decrypt_key(encrypted: &[u8], passphrase: &str) -> Result<Vec<u8>> {
         .context("Failed to read decrypted bytes")?;
 
     Ok(decrypted)
+}
+
+/// Returns the path to the OpenClaw identity directory (~/.openclaw/identity/)
+pub fn identity_dir() -> Result<PathBuf> {
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .context("Could not determine home directory")?;
+    Ok(PathBuf::from(home).join(".openclaw").join("identity"))
+}
+
+/// Checks if an identity already exists
+pub fn identity_exists() -> Result<bool> {
+    let identity_path = identity_dir()?;
+    Ok(identity_path.join("identity.json").exists())
+}
+
+/// Prompts for passphrase with confirmation
+fn prompt_passphrase() -> Result<String> {
+    let passphrase = rpassword::prompt_password("Enter passphrase for private key: ")
+        .context("Failed to read passphrase")?;
+
+    if passphrase.is_empty() {
+        anyhow::bail!("Passphrase cannot be empty");
+    }
+
+    let confirm = rpassword::prompt_password("Confirm passphrase: ")
+        .context("Failed to read passphrase confirmation")?;
+
+    if passphrase != confirm {
+        anyhow::bail!("Passphrases do not match");
+    }
+
+    Ok(passphrase)
+}
+
+/// Creates a directory with secure permissions (0700 on Unix)
+#[cfg(unix)]
+fn create_secure_dir(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::create_dir_all(path)
+        .with_context(|| format!("Failed to create directory {}", path.display()))?;
+
+    fs::set_permissions(path, fs::Permissions::from_mode(permissions::DIRECTORY_MODE))
+        .with_context(|| format!("Failed to set permissions on {}", path.display()))?;
+
+    Ok(())
+}
+
+/// Creates a directory (Windows version - no special permissions)
+#[cfg(not(unix))]
+fn create_secure_dir(path: &Path) -> Result<()> {
+    fs::create_dir_all(path)
+        .with_context(|| format!("Failed to create directory {}", path.display()))?;
+    Ok(())
+}
+
+/// Writes a file with specific permissions
+#[cfg(unix)]
+fn write_file_with_perms(path: &Path, contents: &[u8], mode: u32) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::write(path, contents)
+        .with_context(|| format!("Failed to write {}", path.display()))?;
+
+    fs::set_permissions(path, fs::Permissions::from_mode(mode))
+        .with_context(|| format!("Failed to set permissions on {}", path.display()))?;
+
+    Ok(())
+}
+
+/// Writes a file (Windows version - no special permissions)
+#[cfg(not(unix))]
+fn write_file_with_perms(path: &Path, contents: &[u8], _mode: u32) -> Result<()> {
+    fs::write(path, contents)
+        .with_context(|| format!("Failed to write {}", path.display()))?;
+    Ok(())
+}
+
+/// Initializes a new OpenClaw identity.
+///
+/// This function:
+/// 1. Checks if identity already exists (errors unless force=true)
+/// 2. Creates ~/.openclaw/identity/ with 0700 permissions
+/// 3. Generates an Ed25519 keypair
+/// 4. Derives DID from the public key
+/// 5. Prompts for passphrase (with confirmation)
+/// 6. Encrypts the private key with age
+/// 7. Writes root.key.enc (0600), root.pub (0644), identity.json
+///
+/// # Arguments
+/// * `force` - If true, overwrites existing identity
+///
+/// # Returns
+/// The DID of the newly created identity
+pub fn init_identity(force: bool) -> Result<String> {
+    // Check if identity already exists
+    if identity_exists()? && !force {
+        anyhow::bail!(
+            "Identity already exists at {:?}. Use --force to overwrite.",
+            identity_dir()?
+        );
+    }
+
+    // Create identity directory with secure permissions
+    let identity_path = identity_dir()?;
+    create_secure_dir(&identity_path)?;
+
+    // Generate keypair
+    let (signing_key, verifying_key) = openclaw_crypto::generate_keypair();
+
+    // Derive DID from public key
+    let did = openclaw_crypto::pubkey_to_did(&verifying_key);
+
+    // Prompt for passphrase
+    let passphrase = prompt_passphrase()?;
+
+    // Encrypt private key
+    let private_key_bytes = signing_key.to_bytes();
+    let encrypted_key = encrypt_key(&private_key_bytes, &passphrase)?;
+
+    // Write encrypted private key (0600)
+    let key_enc_path = identity_path.join("root.key.enc");
+    write_file_with_perms(&key_enc_path, &encrypted_key, permissions::KEYFILE_MODE)?;
+
+    // Write public key (0644 - readable by others)
+    let pub_key_path = identity_path.join("root.pub");
+    let public_key_bytes = verifying_key.to_bytes();
+    write_file_with_perms(&pub_key_path, &public_key_bytes, 0o644)?;
+
+    // Create identity.json
+    let now = chrono_iso8601_now();
+    let identity_info = IdentityInfo {
+        did: did.clone(),
+        created_at: now,
+        key_type: "Ed25519".to_string(),
+    };
+
+    let identity_json = serde_json::to_string_pretty(&identity_info)
+        .context("Failed to serialize identity info")?;
+
+    // Write identity.json (0644 - readable metadata)
+    let identity_json_path = identity_path.join("identity.json");
+    write_file_with_perms(&identity_json_path, identity_json.as_bytes(), 0o644)?;
+
+    Ok(did)
+}
+
+/// Returns current time as ISO 8601 string
+fn chrono_iso8601_now() -> String {
+    // Use simple time formatting without external chrono dependency
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    let secs = duration.as_secs();
+
+    // Convert to UTC components (simplified - doesn't account for leap seconds)
+    let days = secs / 86400;
+    let remaining = secs % 86400;
+    let hours = remaining / 3600;
+    let minutes = (remaining % 3600) / 60;
+    let seconds = remaining % 60;
+
+    // Calculate year, month, day from days since epoch (1970-01-01)
+    let (year, month, day) = days_to_ymd(days as i64);
+
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hours, minutes, seconds
+    )
+}
+
+/// Convert days since Unix epoch to (year, month, day)
+fn days_to_ymd(mut days: i64) -> (i32, u32, u32) {
+    // Days from year 1 to Unix epoch (1970-01-01)
+    days += 719468;
+
+    let era = if days >= 0 { days } else { days - 146096 } / 146097;
+    let doe = (days - era * 146097) as u32; // day of era [0, 146096]
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // year of era [0, 399]
+    let y = (yoe as i64) + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // day of year [0, 365]
+    let mp = (5 * doy + 2) / 153; // month starting from March [0, 11]
+    let d = doy - (153 * mp + 2) / 5 + 1; // day [1, 31]
+    let m = if mp < 10 { mp + 3 } else { mp - 9 }; // month [1, 12]
+    let y = if m <= 2 { y + 1 } else { y };
+
+    (y as i32, m, d)
 }
 
 #[cfg(test)]
