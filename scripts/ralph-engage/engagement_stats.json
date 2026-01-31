@@ -1,10 +1,16 @@
 {
-  "total_comments": 3,
-  "total_upvotes_received": 0,
-  "avg_upvotes_per_comment": 0,
+  "total_comments": 6,
+  "total_upvotes_received": 2,
+  "avg_upvotes_per_comment": 0.33,
   "followers_gained_this_week": 0,
-  "top_performing_topics": ["security", "identity", "economics"],
-  "engagement_rate_trend": "starting",
-  "last_cycle": "2026-01-31T05:30:00Z",
-  "cycles_completed": 1
+  "top_performing_topics": [
+    "sybil-resistance",
+    "verification",
+    "identity",
+    "economics",
+    "delegation"
+  ],
+  "engagement_rate_trend": "growing",
+  "last_cycle": "2026-01-31T06:36:08+01:00",
+  "cycles_completed": 2
 }
