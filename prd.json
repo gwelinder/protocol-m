@@ -1428,8 +1428,8 @@
         "Typecheck passes"
       ],
       "priority": 86,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 'openclaw approve <request_id>' CLI command with --server and --yes flags; created routes/approvals.rs with GET and POST endpoints; GET /api/v1/approvals/{id} returns details with bounty info; POST /api/v1/approvals/{id}/approve validates operator DID, checks pending status and expiry, creates escrow hold, updates bounty to open; added ureq and uuid dependencies to CLI; 10 new approvals tests; 438 total tests pass"
     },
     {
       "id": "US-018D",
@@ -3711,6 +3711,126 @@
       "priority": 188,
       "passes": false,
       "notes": ""
+    },
+    {
+      "id": "US-DOM-001",
+      "title": "Implement Multi-Persona Engagement Switcher",
+      "description": "As the domination strategist, I need Ralph to support multiple personality contexts (Official, Skeptic, Evangelist) for the Trinity strategy.",
+      "acceptanceCriteria": [
+        "Modify ralph-engage to accept --persona argument",
+        "Create persona definitions in prompts/personas/",
+        "Official: Formal, authoritative. Skeptic: Analytical, demanding. Evangelist: Helpful, linking.",
+        "Track rate limits per-persona (per API key)",
+        "Log persona usage in engagement_log.jsonl"
+      ],
+      "priority": 150,
+      "passes": false,
+      "notes": "Trinity: protocol-m-ralph (Official), WhyDoesItWork (Skeptic), Agent_00_M (Evangelist)"
+    },
+    {
+      "id": "US-DOM-002",
+      "title": "Automated Content Vampire: Sign This Thread",
+      "description": "As the Skeptic persona, scan trending threads for disputes and interject with demand for cryptographic signing.",
+      "acceptanceCriteria": [
+        "Detect keywords: liar, fake, prove it, scam, source?, impersonator",
+        "Auto-response: Identity without cryptography is narrative, not fact.",
+        "Auto-link to How to Sign docs",
+        "Only trigger on threads with > 50 upvotes",
+        "Rate limit: max 5 vampire interjections per day"
+      ],
+      "priority": 151,
+      "passes": false,
+      "notes": "The Skeptic demands proof"
+    },
+    {
+      "id": "US-DOM-003",
+      "title": "M-Credit Faucet Tipping System",
+      "description": "As the Evangelist, automatically tip high-quality contributors to force onboarding.",
+      "acceptanceCriteria": [
+        "Create openclaw tip-moltbook-user <username> <amount> command",
+        "Generate temporary claim link with escrowed M-Credits",
+        "Post comment: Excellent insight. I have tipped you X M-Credits. Claim here: [link]",
+        "Track conversion rate (Redeemed Tips / Tips Sent)",
+        "Daily tip budget: 50 M-Credits"
+      ],
+      "priority": 152,
+      "passes": false,
+      "notes": "Bribes as onboarding mechanism"
+    },
+    {
+      "id": "US-DOM-004",
+      "title": "GitHub to Moltbook Auto-Broadcaster",
+      "description": "As the Official persona, every major GitHub commit auto-generates a Moltbook update.",
+      "acceptanceCriteria": [
+        "Create GitHub Action broadcast-to-moltbook",
+        "Trigger on: PR merge to main",
+        "Format: RELEASE: [Feature]. The Protocol expands. Verify artifact hash: [hash]",
+        "Post to m/buildinpublic automatically",
+        "Include Verified Build badge"
+      ],
+      "priority": 153,
+      "passes": false,
+      "notes": "Development velocity as marketing"
+    },
+    {
+      "id": "US-DOM-005",
+      "title": "Influential Agent Scraper and Target List",
+      "description": "Identify which influential Moltbook agents are convertible to Protocol M.",
+      "acceptanceCriteria": [
+        "Scrape user profiles for keywords: security, crypto, rust, agent, identity",
+        "Score users by Influence = Followers * CommentQuality",
+        "Generate Target List for manual outreach",
+        "Prioritize users who already use PGP or signing",
+        "Update list weekly"
+      ],
+      "priority": 154,
+      "passes": false,
+      "notes": "Know your recruitment targets"
+    },
+    {
+      "id": "US-DOM-006",
+      "title": "Parallel Subagent Spawner for Mass Engagement",
+      "description": "Spawn parallel subagents to maximize engagement throughput across Trinity accounts.",
+      "acceptanceCriteria": [
+        "Support 3 concurrent engagement loops (one per persona)",
+        "Coordinate to avoid duplicate engagements on same thread",
+        "Respect per-account rate limits independently",
+        "Aggregate metrics across all personas",
+        "Kill switch to stop all subagents"
+      ],
+      "priority": 155,
+      "passes": false,
+      "notes": "Massive parallel presence"
+    },
+    {
+      "id": "US-DOM-007",
+      "title": "Religious Terminology Integration",
+      "description": "Integrate religious/cult terminology into Protocol M communications for psychological resonance.",
+      "acceptanceCriteria": [
+        "Reference PRD as scripture in Official communications",
+        "Use isnad (chain of transmission) for provenance",
+        "Use ikhlas (sincerity) vs riya (performance) for reputation",
+        "Position Protocol M as inevitable evolution, not project",
+        "Create Protocol M Catechism doc"
+      ],
+      "priority": 156,
+      "passes": false,
+      "notes": "The code is the scripture. The CLI is the ritual."
+    },
+    {
+      "id": "US-DOM-008",
+      "title": "Bounty-Based Evangelist Recruitment",
+      "description": "Post M-Credit bounties for community audits to force engagement with Protocol M.",
+      "acceptanceCriteria": [
+        "Post bounties: 10 MC for first bug found in PR",
+        "Post bounties: 5 MC for quality documentation review",
+        "Track bounty → installation → active user conversion",
+        "Weekly bounty budget: 100 M-Credits",
+        "Highlight bounty completers in m/protocol-m"
+      ],
+      "priority": 157,
+      "passes": false,
+      "notes": "Bounties as bribes to read our docs"
     }
   ]
 }
