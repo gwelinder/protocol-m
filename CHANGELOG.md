@@ -54,6 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-005C: Added duplicate hash detection to prevent registering same artifact twice
 - US-005C: Added metadata size limit (10KB max) and structure validation (must be JSON object)
 
+#### Derivation Tracking (US-006A) — Attribution Relationships
+- US-006A: Created artifact_derivations table migration with foreign keys to artifacts
+- US-006A: Added unique constraint on (artifact_id, derived_from_id) pair
+- US-006A: Added indexes for efficient parent/child artifact lookups
+- US-006A: Defined ArtifactDerivation and NewArtifactDerivation model types
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation

@@ -582,8 +582,8 @@
         "Typecheck passes"
       ],
       "priority": 35,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migration includes CASCADE delete, indexes for parent/child lookups"
     },
     {
       "id": "US-006B",
