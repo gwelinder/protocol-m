@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-003A: Implemented envelope verification logic (verify_artifact function with 9 unit tests)
 - US-003B: Implemented DID to public key extraction (did_to_verifying_key function with 6 unit tests)
 - US-003C: Implemented verify command handler (--sig flag, envelope parsing, verification)
+- US-003D: Added colored verification output (green ✓ / red ✗, truncated DID display)
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation

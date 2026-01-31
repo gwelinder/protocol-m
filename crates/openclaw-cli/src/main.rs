@@ -177,6 +177,7 @@ fn handle_sign(path: &str, meta: Vec<String>, dry_run: bool) -> anyhow::Result<(
 }
 
 fn handle_verify(path: &str, sig_path: Option<&str>) -> anyhow::Result<()> {
+    use colored::Colorize;
     use std::path::Path;
 
     // Determine signature file path
@@ -203,14 +204,36 @@ fn handle_verify(path: &str, sig_path: Option<&str>) -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("Failed to read '{}': {}", path, e))?;
 
     // Call verify_artifact from openclaw-crypto
-    openclaw_crypto::verify_artifact(&verifying_key, &file_bytes, &envelope)?;
+    match openclaw_crypto::verify_artifact(&verifying_key, &file_bytes, &envelope) {
+        Ok(()) => {
+            // Success - print green checkmark
+            println!("{} {}", "✓".green().bold(), "Signature verified".green());
+            println!();
+            // Truncate DID for readability (show first 20 chars + ... + last 8)
+            let truncated_did = truncate_did(&envelope.signer);
+            println!("  Signer:    {}", truncated_did);
+            println!("  Timestamp: {}", envelope.timestamp);
+            println!("  File:      {}", envelope.artifact.name);
+            Ok(())
+        }
+        Err(e) => {
+            // Failure - print red X
+            eprintln!("{} {}", "✗".red().bold(), "Signature verification failed".red());
+            eprintln!();
+            eprintln!("  Error: {}", e);
+            Err(e)
+        }
+    }
+}
 
-    // Success - verification passed
-    println!("Verification successful!");
-    println!("Signer: {}", envelope.signer);
-    println!("Timestamp: {}", envelope.timestamp);
-
-    Ok(())
+/// Truncates a DID for readability: "did:key:z6Mk...last8chars"
+fn truncate_did(did: &str) -> String {
+    if did.len() <= 30 {
+        return did.to_string();
+    }
+    let prefix = &did[..20];
+    let suffix = &did[did.len() - 8..];
+    format!("{}...{}", prefix, suffix)
 }
 
 fn handle_manifest(action: ManifestAction) -> anyhow::Result<()> {
