@@ -1113,8 +1113,8 @@
         "Typecheck passes"
       ],
       "priority": 67,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added POST /api/v1/bounties/{id}/submit endpoint; requires DID binding; accepts SignatureEnvelopeV1 with optional execution_receipt; verifies ed25519 signature cryptographically; validates execution receipt for test-based bounties (harness_hash and all_tests_passed required); verifies signer matches submitter DID; inserts submission with status=pending; returns submission_id; 20 new unit tests; 244 total tests pass"
     },
     {
       "id": "US-014C",

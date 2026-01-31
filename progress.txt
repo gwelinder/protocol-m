@@ -869,3 +869,17 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - Composite index on (bounty_id, created_at DESC) WHERE status = 'pending' optimizes pending submission queries
   - 227 total tests pass (219 server + 43 crypto + 6 golden + 4 roundtrip + 19 CLI + 2 doctests + 5 ignored)
 ---
+
+## 2026-01-31 - US-014B
+- What was implemented: Bounty submission endpoint POST /api/v1/bounties/{id}/submit
+- Files changed:
+  - `crates/openclaw-server/src/routes/bounties.rs` - Added submit_bounty handler, SubmitBountyRequest/Response types, load_bounty_for_submission, parse_signature_envelope, verify_envelope_signature, validate_execution_receipt_for_tests functions, and 20 unit tests
+- **Learnings for future iterations:**
+  - Use Path<Uuid> extractor for path parameters in axum handlers
+  - Reuse did_to_verifying_key from openclaw_crypto for DID parsing in server routes
+  - verify_envelope_signature requires creating envelope copy with empty signature before JCS canonicalization
+  - Accept both snake_case and camelCase for execution_receipt fields (harness_hash/harnessHash, all_tests_passed/allTestsPassed)
+  - Validate bounty.is_open() and !bounty.is_expired() before accepting submissions
+  - Ensure envelope signer matches the submitter's bound DID to prevent impersonation
+  - 244 total tests pass (219 server + 43 crypto + 6 golden + 4 roundtrip + 19 CLI + 2 doctests + 5 ignored)
+---

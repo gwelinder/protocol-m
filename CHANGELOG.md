@@ -282,6 +282,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Helper methods: is_pending, is_approved, is_rejected, has_execution_receipt
   - Execution receipt helpers: execution_harness_hash, all_tests_passed, test_results
   - 8 unit tests for serialization, status helpers, and execution receipt extraction
+- US-014B: Implemented bounty submission endpoint POST /api/v1/bounties/{id}/submit:
+  - Added route POST /api/v1/bounties/{id}/submit to bounties router
+  - Requires authentication and DID binding (get_user_bound_did validation)
+  - Accepts SignatureEnvelopeV1 (signature_envelope) with optional execution_receipt
+  - Verifies envelope signature cryptographically (ed25519, JCS canonicalization)
+  - Validates envelope version (1.0), type (signature-envelope/contribution-manifest), algo (ed25519), hash algo (sha-256)
+  - Verifies envelope signer matches submitter's bound DID
+  - For test-based bounties: validates execution_receipt contains harness_hash and all_tests_passed
+  - Supports both snake_case and camelCase fields in execution_receipt
+  - Validates bounty is open and not expired before accepting submissions
+  - Inserts submission with status=pending
+  - Returns submission_id, bounty_id, submitter_did, status
+  - 20 unit tests for request/response serialization, execution receipt validation, envelope parsing, and signature verification
+  - 244 total tests pass
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
