@@ -258,6 +258,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - EscrowHold, NewEscrowHold, EscrowStatus Rust model structs
   - Helper methods: is_held, is_released, is_cancelled, is_finalized
   - 5 unit tests for serialization and status helpers
+- US-013C: Implemented POST /api/v1/bounties endpoint for bounty posting:
+  - CreateBountyRequest/Response types with camelCase JSON serialization
+  - Title and description validation (length limits, non-empty)
+  - Reward amount validation (1-1,000,000 M-credits)
+  - Closure-type-specific metadata validation:
+    - Tests: requires evalHarnessHash in metadata
+    - Quorum: requires reviewerCount (≥1) and minReviewerRep (≥0)
+    - Requester: no special metadata required
+  - DID binding verification (user must have active bound DID)
+  - Balance sufficiency check (main + promo balance)
+  - Escrow hold creation: ledger entry + escrow_holds record + balance deduction
+  - Bounty record creation with status=open
+  - Returns bounty_id, escrow_id, ledger_id on success
+  - 35 unit tests for validation, serialization, and balance checks
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

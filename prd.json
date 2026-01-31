@@ -1079,8 +1079,8 @@
         "Typecheck passes"
       ],
       "priority": 65,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created POST /api/v1/bounties endpoint with CreateBountyRequest/CreateBountyResponse types; closure-type-specific validation (tests requires evalHarnessHash, quorum requires reviewerCount/minReviewerRep); DID binding verification; balance check; escrow hold creation with ledger entry; 35 unit tests; 220 total tests pass"
     },
     {
       "id": "US-014A",

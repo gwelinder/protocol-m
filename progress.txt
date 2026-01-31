@@ -841,3 +841,17 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - released_at is nullable (only set when status changes to released or cancelled)
   - 254 total tests pass (179 server + 43 crypto + 6 golden + 4 roundtrip + 19 CLI + 2 doctests + 5 ignored)
 ---
+
+## 2026-01-31 - US-013C
+- What was implemented: Bounty posting endpoint POST /api/v1/bounties
+- Files changed:
+  - `crates/openclaw-server/src/routes/bounties.rs` - New module with create_bounty handler, validation functions, escrow hold creation
+  - `crates/openclaw-server/src/routes/mod.rs` - Added bounties module and route nesting
+- **Learnings for future iterations:**
+  - Use `get_user_bound_did` pattern to require DID binding before sensitive operations
+  - Closure-type-specific validation can accept both camelCase and snake_case metadata fields
+  - Create escrow hold atomically: insert ledger entry, create escrow_holds record, deduct from balance
+  - Use `validate_*` functions for clean separation of validation logic
+  - NewMCreditsLedger::hold creates hold event with from_did (the holder) and to_did = None
+  - 220 total tests pass (35 new bounties tests in routes/bounties.rs)
+---
