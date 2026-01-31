@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-001K: Implemented file permission checks (0700 for dirs, 0600 for keyfiles, Windows bypass)
 - US-001L: Implemented identity initialization logic (init_identity function, passphrase prompting, encrypted key storage)
 - US-001M: Added CLI scaffolding with clap (Cli struct, Commands enum, subcommand routing)
+- US-001N: Wired identity init command to CLI (connects handler to keystore::init_identity, displays DID on success)
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
