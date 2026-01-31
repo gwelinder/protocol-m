@@ -4,6 +4,7 @@ pub mod artifact;
 pub mod artifact_derivation;
 pub mod bounty;
 pub mod bounty_submission;
+pub mod dispute;
 pub mod compute_provider;
 pub mod did_binding;
 pub mod did_challenge;
@@ -20,6 +21,10 @@ pub use artifact::{Artifact, NewArtifact};
 pub use artifact_derivation::{ArtifactDerivation, NewArtifactDerivation};
 pub use bounty::{Bounty, BountyClosureType, BountyStatus, NewBounty};
 pub use bounty_submission::{BountySubmission, NewBountySubmission, SubmissionStatus};
+pub use dispute::{
+    calculate_dispute_stake, Dispute, DisputeStatus, NewDispute, ResolutionOutcome,
+    DISPUTE_STAKE_PERCENTAGE, DISPUTE_WINDOW_DAYS,
+};
 pub use compute_provider::{ComputeProvider, NewComputeProvider, ProviderType};
 pub use did_binding::{DidBinding, NewDidBinding};
 pub use did_challenge::{DidChallenge, NewDidChallenge};

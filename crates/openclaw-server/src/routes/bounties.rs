@@ -12,10 +12,13 @@ use sqlx::PgPool;
 use std::str::FromStr;
 use uuid::Uuid;
 
+use chrono::{Duration, Utc};
+
 use crate::error::AppError;
 use crate::models::{
-    Bounty, BountyClosureType, BountyStatus, BountySubmission, EscrowStatus, NewBounty,
-    NewBountySubmission, NewEscrowHold, NewMCreditsLedger, SubmissionStatus,
+    calculate_dispute_stake, Bounty, BountyClosureType, BountyStatus, BountySubmission,
+    Dispute, DisputeStatus, EscrowStatus, NewBounty, NewBountySubmission, NewDispute,
+    NewEscrowHold, NewMCreditsLedger, SubmissionStatus, DISPUTE_WINDOW_DAYS,
 };
 use openclaw_crypto::{did_to_verifying_key, SignatureEnvelopeV1};
 
@@ -152,12 +155,51 @@ pub struct SubmissionInstructions {
     pub deadline: Option<String>,
 }
 
+/// Request body for creating a dispute.
+/// Note: In production, user_id would come from authentication.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateDisputeRequest {
+    /// The user ID creating the dispute.
+    /// In production, this would be extracted from auth token.
+    pub user_id: Uuid,
+    /// ID of the submission being disputed.
+    pub submission_id: Uuid,
+    /// Reason for the dispute.
+    pub reason: String,
+}
+
+/// Response for successful dispute creation.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateDisputeResponse {
+    /// Whether the dispute was created successfully.
+    pub success: bool,
+    /// The unique dispute ID.
+    pub dispute_id: Uuid,
+    /// ID of the bounty being disputed.
+    pub bounty_id: Uuid,
+    /// ID of the submission being disputed.
+    pub submission_id: Uuid,
+    /// DID of the dispute initiator.
+    pub initiator_did: String,
+    /// Amount staked by the initiator (10% of bounty reward).
+    pub stake_amount: String,
+    /// Current status of the dispute.
+    pub status: DisputeStatus,
+    /// Deadline for dispute resolution.
+    pub dispute_deadline: String,
+    /// Message explaining the dispute creation.
+    pub message: String,
+}
+
 /// Creates the bounties router.
 pub fn router(pool: PgPool) -> Router {
     Router::new()
         .route("/", post(create_bounty))
         .route("/{id}/accept", post(accept_bounty))
         .route("/{id}/submit", post(submit_bounty))
+        .route("/{id}/dispute", post(create_dispute))
         .with_state(pool)
 }
 
@@ -1405,6 +1447,286 @@ async fn submit_bounty(
         status: final_status,
         auto_approved,
         message,
+    }))
+}
+
+// ===== Dispute Creation Endpoint =====
+
+/// Validates the dispute reason is not empty and within length limits.
+fn validate_dispute_reason(reason: &str) -> Result<(), AppError> {
+    let trimmed = reason.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::BadRequest(
+            "Dispute reason cannot be empty".to_string(),
+        ));
+    }
+    if trimmed.len() > 2000 {
+        return Err(AppError::BadRequest(
+            "Dispute reason must be 2000 characters or less".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Loads a submission by ID and validates it is disputable.
+async fn load_submission_for_dispute(
+    pool: &PgPool,
+    submission_id: Uuid,
+) -> Result<BountySubmission, AppError> {
+    let submission: Option<BountySubmission> = sqlx::query_as(
+        r#"
+        SELECT id, bounty_id, submitter_did, artifact_hash, signature_envelope, execution_receipt, status, created_at, artifact_id
+        FROM bounty_submissions
+        WHERE id = $1
+        "#,
+    )
+    .bind(submission_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query submission: {}", e)))?;
+
+    let submission = submission.ok_or_else(|| {
+        AppError::NotFound(format!("Submission not found: {}", submission_id))
+    })?;
+
+    // Check submission is approved (disputes are against approved submissions)
+    if !submission.is_approved() {
+        return Err(AppError::BadRequest(format!(
+            "Only approved submissions can be disputed. Current status: {:?}",
+            submission.status
+        )));
+    }
+
+    Ok(submission)
+}
+
+/// Loads a bounty by ID for dispute validation.
+async fn load_bounty_for_dispute(pool: &PgPool, bounty_id: Uuid) -> Result<Bounty, AppError> {
+    let bounty: Option<Bounty> = sqlx::query_as(
+        r#"
+        SELECT id, poster_did, title, description, reward_credits, closure_type, status, metadata, created_at, updated_at, deadline
+        FROM bounties
+        WHERE id = $1
+        "#,
+    )
+    .bind(bounty_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query bounty: {}", e)))?;
+
+    bounty.ok_or_else(|| AppError::NotFound(format!("Bounty not found: {}", bounty_id)))
+}
+
+/// Checks if a submission is within the dispute window.
+/// The dispute window is 7 days from submission creation.
+fn check_dispute_window(submission: &BountySubmission) -> Result<(), AppError> {
+    let window_end = submission.created_at + Duration::days(DISPUTE_WINDOW_DAYS);
+    let now = Utc::now();
+
+    if now > window_end {
+        return Err(AppError::BadRequest(format!(
+            "Dispute window has closed. Submissions can only be disputed within {} days of approval.",
+            DISPUTE_WINDOW_DAYS
+        )));
+    }
+
+    Ok(())
+}
+
+/// Checks if there is already an active dispute for this submission.
+async fn check_existing_dispute(pool: &PgPool, submission_id: Uuid) -> Result<(), AppError> {
+    let existing: Option<(Uuid,)> = sqlx::query_as(
+        r#"
+        SELECT id
+        FROM disputes
+        WHERE submission_id = $1 AND status = 'pending'
+        LIMIT 1
+        "#,
+    )
+    .bind(submission_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to query existing disputes: {}", e)))?;
+
+    if existing.is_some() {
+        return Err(AppError::BadRequest(
+            "There is already an active dispute for this submission".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+/// Creates an escrow hold for the dispute stake.
+/// Returns the escrow hold ID.
+async fn create_dispute_stake_escrow(
+    pool: &PgPool,
+    bounty_id: Uuid,
+    initiator_did: &str,
+    stake_amount: &BigDecimal,
+) -> Result<Uuid, AppError> {
+    // Step 1: Insert hold event into ledger
+    let ledger_entry = NewMCreditsLedger::hold(
+        initiator_did.to_string(),
+        stake_amount.clone(),
+        json!({
+            "bounty_id": bounty_id.to_string(),
+            "reason": "dispute_stake"
+        }),
+    );
+
+    sqlx::query(
+        r#"
+        INSERT INTO m_credits_ledger (event_type, from_did, to_did, amount, metadata)
+        VALUES ($1, $2, $3, $4, $5)
+        "#,
+    )
+    .bind(ledger_entry.event_type)
+    .bind(&ledger_entry.from_did)
+    .bind(&ledger_entry.to_did)
+    .bind(&ledger_entry.amount)
+    .bind(&ledger_entry.metadata)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to insert stake ledger entry: {}", e)))?;
+
+    // Step 2: Create escrow hold record
+    let escrow_id = Uuid::new_v4();
+    let new_escrow = NewEscrowHold::new(bounty_id, initiator_did.to_string(), stake_amount.clone());
+
+    sqlx::query(
+        r#"
+        INSERT INTO escrow_holds (id, bounty_id, holder_did, amount, status, created_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        "#,
+    )
+    .bind(escrow_id)
+    .bind(new_escrow.bounty_id)
+    .bind(&new_escrow.holder_did)
+    .bind(&new_escrow.amount)
+    .bind(EscrowStatus::Held)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to create stake escrow: {}", e)))?;
+
+    // Step 3: Deduct from initiator's balance
+    sqlx::query(
+        r#"
+        UPDATE m_credits_accounts
+        SET balance = balance - $2
+        WHERE did = $1
+        "#,
+    )
+    .bind(initiator_did)
+    .bind(stake_amount)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to deduct stake from balance: {}", e)))?;
+
+    Ok(escrow_id)
+}
+
+/// Creates a dispute against an approved bounty submission.
+/// Requires the initiator to stake 10% of the bounty reward.
+async fn create_dispute(
+    State(pool): State<PgPool>,
+    Path(bounty_id): Path<Uuid>,
+    Json(request): Json<CreateDisputeRequest>,
+) -> Result<Json<CreateDisputeResponse>, AppError> {
+    // Step 1: Get user's bound DID (authentication + DID binding check)
+    let initiator_did = get_user_bound_did(&pool, request.user_id).await?;
+
+    // Step 2: Validate dispute reason
+    validate_dispute_reason(&request.reason)?;
+
+    // Step 3: Load and validate the submission
+    let submission = load_submission_for_dispute(&pool, request.submission_id).await?;
+
+    // Verify submission belongs to this bounty
+    if submission.bounty_id != bounty_id {
+        return Err(AppError::BadRequest(format!(
+            "Submission {} does not belong to bounty {}",
+            request.submission_id, bounty_id
+        )));
+    }
+
+    // Step 4: Load the bounty
+    let bounty = load_bounty_for_dispute(&pool, bounty_id).await?;
+
+    // Step 5: Check dispute window (7 days from submission creation)
+    check_dispute_window(&submission)?;
+
+    // Step 6: Check no existing active dispute for this submission
+    check_existing_dispute(&pool, request.submission_id).await?;
+
+    // Step 7: Prevent self-disputes (initiator cannot be the submitter)
+    if initiator_did == submission.submitter_did {
+        return Err(AppError::BadRequest(
+            "You cannot dispute your own submission".to_string(),
+        ));
+    }
+
+    // Step 8: Calculate the stake amount (10% of bounty reward)
+    let stake_amount = calculate_dispute_stake(&bounty.reward_credits);
+
+    // Step 9: Check initiator has sufficient balance for the stake
+    let (main_balance, promo_balance) = get_did_balance(&pool, &initiator_did).await?;
+    check_sufficient_balance(&main_balance, &promo_balance, &stake_amount)?;
+
+    // Step 10: Create stake escrow hold
+    let stake_escrow_id =
+        create_dispute_stake_escrow(&pool, bounty_id, &initiator_did, &stake_amount).await?;
+
+    // Step 11: Calculate dispute deadline (7 days from now)
+    let dispute_deadline = Utc::now() + Duration::days(DISPUTE_WINDOW_DAYS);
+
+    // Step 12: Create the dispute record
+    let dispute_id = Uuid::new_v4();
+    let new_dispute = NewDispute::with_deadline(
+        bounty_id,
+        request.submission_id,
+        initiator_did.clone(),
+        request.reason.trim().to_string(),
+        stake_amount.clone(),
+        Some(stake_escrow_id),
+        dispute_deadline,
+    );
+
+    let dispute: Dispute = sqlx::query_as(
+        r#"
+        INSERT INTO disputes (id, bounty_id, submission_id, initiator_did, reason, status, stake_amount, stake_escrow_id, dispute_deadline, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+        RETURNING id, bounty_id, submission_id, initiator_did, reason, status, stake_amount, stake_escrow_id, resolution_outcome, resolver_did, created_at, resolved_at, dispute_deadline
+        "#,
+    )
+    .bind(dispute_id)
+    .bind(new_dispute.bounty_id)
+    .bind(new_dispute.submission_id)
+    .bind(&new_dispute.initiator_did)
+    .bind(&new_dispute.reason)
+    .bind(DisputeStatus::Pending)
+    .bind(&new_dispute.stake_amount)
+    .bind(new_dispute.stake_escrow_id)
+    .bind(new_dispute.dispute_deadline)
+    .fetch_one(&pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to create dispute: {}", e)))?;
+
+    // Step 13: Return response
+    Ok(Json(CreateDisputeResponse {
+        success: true,
+        dispute_id: dispute.id,
+        bounty_id: dispute.bounty_id,
+        submission_id: dispute.submission_id,
+        initiator_did: dispute.initiator_did,
+        stake_amount: dispute.stake_amount.to_string(),
+        status: dispute.status,
+        dispute_deadline: dispute.dispute_deadline.to_rfc3339(),
+        message: format!(
+            "Dispute created successfully. {} M-credits staked. Resolution deadline: {}",
+            stake_amount,
+            dispute.dispute_deadline.format("%Y-%m-%d %H:%M:%S UTC")
+        ),
     }))
 }
 
@@ -2834,5 +3156,220 @@ mod tests {
         assert!(json_str.contains("\"requiredFields\""));
         assert!(json_str.contains("signatureEnvelope"));
         assert!(json_str.contains("executionReceipt"));
+    }
+
+    // ===== Dispute Creation Tests =====
+
+    #[test]
+    fn test_validate_dispute_reason_valid() {
+        let result = validate_dispute_reason("The submission does not match the requirements");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_dispute_reason_empty() {
+        let result = validate_dispute_reason("");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_dispute_reason_whitespace() {
+        let result = validate_dispute_reason("   ");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_dispute_reason_too_long() {
+        let long_reason = "a".repeat(2001);
+        let result = validate_dispute_reason(&long_reason);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("2000 characters"));
+    }
+
+    #[test]
+    fn test_validate_dispute_reason_max_length() {
+        let max_reason = "a".repeat(2000);
+        let result = validate_dispute_reason(&max_reason);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_dispute_window_within_window() {
+        let now = Utc::now();
+        let submission = BountySubmission {
+            id: Uuid::new_v4(),
+            bounty_id: Uuid::new_v4(),
+            submitter_did: "did:key:z6MkTest".to_string(),
+            artifact_hash: "abc123".to_string(),
+            signature_envelope: json!({}),
+            execution_receipt: None,
+            status: SubmissionStatus::Approved,
+            created_at: now - Duration::days(3), // 3 days ago
+            artifact_id: None,
+        };
+
+        let result = check_dispute_window(&submission);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_dispute_window_at_boundary() {
+        let now = Utc::now();
+        let submission = BountySubmission {
+            id: Uuid::new_v4(),
+            bounty_id: Uuid::new_v4(),
+            submitter_did: "did:key:z6MkTest".to_string(),
+            artifact_hash: "abc123".to_string(),
+            signature_envelope: json!({}),
+            execution_receipt: None,
+            status: SubmissionStatus::Approved,
+            created_at: now - Duration::days(DISPUTE_WINDOW_DAYS) + Duration::hours(1), // Just within window
+            artifact_id: None,
+        };
+
+        let result = check_dispute_window(&submission);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_dispute_window_expired() {
+        let now = Utc::now();
+        let submission = BountySubmission {
+            id: Uuid::new_v4(),
+            bounty_id: Uuid::new_v4(),
+            submitter_did: "did:key:z6MkTest".to_string(),
+            artifact_hash: "abc123".to_string(),
+            signature_envelope: json!({}),
+            execution_receipt: None,
+            status: SubmissionStatus::Approved,
+            created_at: now - Duration::days(DISPUTE_WINDOW_DAYS + 1), // 8 days ago
+            artifact_id: None,
+        };
+
+        let result = check_dispute_window(&submission);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Dispute window has closed"));
+    }
+
+    #[test]
+    fn test_create_dispute_request_deserialization() {
+        let json = r#"{
+            "userId": "550e8400-e29b-41d4-a716-446655440000",
+            "submissionId": "550e8400-e29b-41d4-a716-446655440001",
+            "reason": "The submission is fraudulent"
+        }"#;
+
+        let request: CreateDisputeRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(request.user_id.to_string(), "550e8400-e29b-41d4-a716-446655440000");
+        assert_eq!(request.submission_id.to_string(), "550e8400-e29b-41d4-a716-446655440001");
+        assert_eq!(request.reason, "The submission is fraudulent");
+    }
+
+    #[test]
+    fn test_create_dispute_response_serialization() {
+        let response = CreateDisputeResponse {
+            success: true,
+            dispute_id: Uuid::new_v4(),
+            bounty_id: Uuid::new_v4(),
+            submission_id: Uuid::new_v4(),
+            initiator_did: "did:key:z6MkTest".to_string(),
+            stake_amount: "10.00000000".to_string(),
+            status: DisputeStatus::Pending,
+            dispute_deadline: "2026-02-07T12:00:00+00:00".to_string(),
+            message: "Dispute created successfully".to_string(),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"success\":true"));
+        assert!(json.contains("\"disputeId\":"));
+        assert!(json.contains("\"bountyId\":"));
+        assert!(json.contains("\"submissionId\":"));
+        assert!(json.contains("\"initiatorDid\":\"did:key:z6MkTest\""));
+        assert!(json.contains("\"stakeAmount\":\"10.00000000\""));
+        assert!(json.contains("\"status\":\"pending\""));
+        assert!(json.contains("\"disputeDeadline\":"));
+        assert!(json.contains("\"message\":"));
+    }
+
+    #[test]
+    fn test_dispute_stake_calculation() {
+        // Test that stake is 10% of bounty reward
+        let reward = BigDecimal::from_str("100.00000000").unwrap();
+        let stake = calculate_dispute_stake(&reward);
+        let expected = BigDecimal::from_str("10.00000000").unwrap();
+        assert_eq!(stake, expected);
+    }
+
+    #[test]
+    fn test_dispute_stake_calculation_large_amount() {
+        let reward = BigDecimal::from_str("5000.00000000").unwrap();
+        let stake = calculate_dispute_stake(&reward);
+        let expected = BigDecimal::from_str("500.00000000").unwrap();
+        assert_eq!(stake, expected);
+    }
+
+    #[test]
+    fn test_dispute_stake_calculation_small_amount() {
+        let reward = BigDecimal::from_str("10.00000000").unwrap();
+        let stake = calculate_dispute_stake(&reward);
+        let expected = BigDecimal::from_str("1.00000000").unwrap();
+        assert_eq!(stake, expected);
+    }
+
+    #[test]
+    fn test_dispute_window_constant() {
+        // Verify dispute window is 7 days
+        assert_eq!(DISPUTE_WINDOW_DAYS, 7);
+    }
+
+    #[test]
+    fn test_dispute_status_serialization() {
+        assert_eq!(
+            serde_json::to_string(&DisputeStatus::Pending).unwrap(),
+            "\"pending\""
+        );
+        assert_eq!(
+            serde_json::to_string(&DisputeStatus::Resolved).unwrap(),
+            "\"resolved\""
+        );
+        assert_eq!(
+            serde_json::to_string(&DisputeStatus::Expired).unwrap(),
+            "\"expired\""
+        );
+    }
+
+    #[test]
+    fn test_submission_disputable_only_when_approved() {
+        let now = Utc::now();
+
+        // Pending submission should not be disputable
+        let pending_submission = BountySubmission {
+            id: Uuid::new_v4(),
+            bounty_id: Uuid::new_v4(),
+            submitter_did: "did:key:z6MkTest".to_string(),
+            artifact_hash: "abc123".to_string(),
+            signature_envelope: json!({}),
+            execution_receipt: None,
+            status: SubmissionStatus::Pending,
+            created_at: now,
+            artifact_id: None,
+        };
+        assert!(!pending_submission.is_approved());
+
+        // Rejected submission should not be disputable
+        let rejected_submission = BountySubmission {
+            status: SubmissionStatus::Rejected,
+            ..pending_submission.clone()
+        };
+        assert!(!rejected_submission.is_approved());
+
+        // Approved submission should be disputable
+        let approved_submission = BountySubmission {
+            status: SubmissionStatus::Approved,
+            ..pending_submission
+        };
+        assert!(approved_submission.is_approved());
     }
 }
