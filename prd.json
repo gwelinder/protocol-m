@@ -696,8 +696,8 @@
         "Typecheck passes"
       ],
       "priority": 42,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added identity.rs routes module with challenge endpoint; 120 tests pass"
     },
     {
       "id": "US-008D",

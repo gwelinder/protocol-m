@@ -77,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-007B: Response includes both flat 'parents' array and grouped 'levels' array
 - US-007B: Results ordered by timestamp DESC within each level
 
-#### DID Binding (US-008A to US-008B) — Identity Linking
+#### DID Binding (US-008A to US-008C) — Identity Linking
 - US-008A: Created did_bindings table migration for linking DIDs to user accounts
 - US-008A: Added indexes on user_id and did columns for fast lookups
 - US-008A: Added unique constraint on active (non-revoked) DID bindings
@@ -85,6 +85,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-008B: Created did_challenges table migration for secure DID binding flow
 - US-008B: Added indexes on challenge, expires_at, and user_id for efficient lookups
 - US-008B: Defined DidChallenge and NewDidChallenge model types with is_valid/is_used/is_expired helpers
+- US-008C: Implemented POST /api/v1/identity/challenge endpoint for DID binding flow
+- US-008C: Added identity routes module with router and create_challenge handler
+- US-008C: Generates random 32-byte challenge (hex-encoded), 10-minute expiry
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
