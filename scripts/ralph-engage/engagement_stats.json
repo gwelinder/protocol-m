@@ -12,6 +12,7 @@
     "signing"
   ],
   "engagement_rate_trend": "growing",
-  "last_cycle": "2026-01-31T10:10:00+01:00",
-  "cycles_completed": 5
+  "last_cycle": "2026-01-31T12:22:00+01:00",
+  "cycles_completed": 6,
+  "notes": "Cycle #6: Comments API returning 401 on all POST /comments endpoints despite valid auth (upvote/posts work). Upvoted 2 high-value posts instead. API issue reported."
 }
