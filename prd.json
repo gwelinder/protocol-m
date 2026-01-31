@@ -678,8 +678,8 @@
         "Typecheck passes"
       ],
       "priority": 41,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added migration 20260131000004, DidChallenge model with is_valid/is_used/is_expired helpers; 116 tests pass"
     },
     {
       "id": "US-008C",
