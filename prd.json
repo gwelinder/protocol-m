@@ -1393,8 +1393,8 @@
         "Typecheck passes"
       ],
       "priority": 84,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000020 with approval_action_type enum (delegate, spend), approval_request_status enum (pending, approved, rejected, expired); approval_requests table with operator_did, bounty_id FK, action_type, amount, status, metadata JSONB, timestamps, expires_at, requester_did, resolution_reason; indexes on operator_did, status, requester_did, bounty_id, created_at, pending_expiry, operator_pending; ApprovalRequest/NewApprovalRequest models with factory methods for spend/delegate, status helpers, metadata accessors; 16 unit tests; 408 total tests pass"
     },
     {
       "id": "US-018B",

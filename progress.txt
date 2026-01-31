@@ -1125,3 +1125,20 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - Pattern: read file → validate → write to standard location with secure permissions → print summary
   - Reuse truncate_did() for displaying delegate DIDs in show command
 ---
+
+## 2026-01-31 - US-018A
+- What was implemented: Created approval_requests table for operator approval workflow
+- Files changed:
+  - `crates/openclaw-server/migrations/20260131000020_create_approval_requests_table.sql` - New migration with approval_action_type enum (delegate, spend), approval_request_status enum (pending, approved, rejected, expired), approval_requests table with all required fields and indexes
+  - `crates/openclaw-server/src/models/approval_request.rs` - New model with ApprovalRequest and NewApprovalRequest structs, ApprovalActionType and ApprovalRequestStatus enums, factory methods, status helpers
+  - `crates/openclaw-server/src/models.rs` - Added approval_request module and re-exports
+- **Learnings for future iterations:**
+  - Approval requests have an expires_at field (default 24 hours) for time-limited approvals
+  - ApprovalActionType enum handles two cases: delegate (authority delegation) and spend (high-value transactions)
+  - NewApprovalRequest::spend() and NewApprovalRequest::delegate() factory methods set appropriate defaults
+  - is_valid() combines is_pending() and !is_past_expiry() for convenience
+  - delegate_to_did() and description() helpers extract common metadata fields
+  - Use Option<BigDecimal> for amount since delegate actions don't have amounts
+  - 16 new tests for serialization, deserialization, factory methods, status helpers
+  - Total tests now: 38 CLI + 90+ crypto + 408 server + 2 doctests = 408 running, 5 ignored
+---

@@ -476,6 +476,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Creates ~/.openclaw/ directory with 0700 perms if it doesn't exist
   - 38 CLI tests pass, all typecheck passes
 
+#### Operator Approval System (US-018A to US-018D) — Guardrails
+- US-018A: Created approval_requests table for operator approval workflow:
+  - Migration 20260131000020 with approval_action_type enum (delegate, spend)
+  - approval_request_status enum (pending, approved, rejected, expired)
+  - approval_requests table with operator_did, bounty_id FK, action_type, amount, metadata (JSONB)
+  - Timestamps: created_at, resolved_at, expires_at (default 24h)
+  - Indexes on operator_did, status, requester_did, bounty_id, created_at, pending_expiry
+  - ApprovalRequest and NewApprovalRequest models with factory methods
+  - Status helpers (is_pending, is_approved, is_rejected, is_expired, is_valid)
+  - Metadata accessors (delegate_to_did, description)
+  - 16 unit tests, 408 total tests pass
+
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
