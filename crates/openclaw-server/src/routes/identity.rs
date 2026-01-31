@@ -23,6 +23,12 @@ const CHALLENGE_BYTES: usize = 32;
 /// Challenge expiry time in minutes.
 const CHALLENGE_EXPIRY_MINUTES: i64 = 10;
 
+/// Maximum challenges per user per hour.
+const MAX_CHALLENGES_PER_HOUR: i64 = 5;
+
+/// Rate limit window in minutes.
+const RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
+
 /// Request body for creating a challenge.
 /// Note: In a real implementation, the user_id would come from authentication.
 #[derive(Debug, Deserialize)]
@@ -83,15 +89,104 @@ fn generate_challenge() -> String {
     hex::encode(bytes)
 }
 
+/// Result of a rate limit check.
+struct RateLimitResult {
+    /// Whether the rate limit has been exceeded.
+    exceeded: bool,
+    /// Seconds until the rate limit window resets (if exceeded).
+    retry_after: u64,
+}
+
+/// Checks if a user has exceeded the challenge rate limit.
+/// Returns the number of seconds to wait if rate limit is exceeded.
+async fn check_challenge_rate_limit(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<RateLimitResult, AppError> {
+    let window_start = Utc::now() - Duration::minutes(RATE_LIMIT_WINDOW_MINUTES);
+
+    // Count challenges created in the rate limit window
+    let row: (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*) as count
+        FROM did_challenges
+        WHERE user_id = $1 AND created_at >= $2
+        "#,
+    )
+    .bind(user_id)
+    .bind(window_start)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to check rate limit: {}", e)))?;
+
+    let count = row.0;
+
+    if count >= MAX_CHALLENGES_PER_HOUR {
+        // Find the oldest challenge in the window to calculate retry_after
+        let oldest_challenge: Option<(chrono::DateTime<Utc>,)> = sqlx::query_as(
+            r#"
+            SELECT created_at
+            FROM did_challenges
+            WHERE user_id = $1 AND created_at >= $2
+            ORDER BY created_at ASC
+            LIMIT 1
+            "#,
+        )
+        .bind(user_id)
+        .bind(window_start)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to query oldest challenge: {}", e)))?;
+
+        // Calculate seconds until the oldest challenge expires from the rate limit window
+        let retry_after = if let Some((oldest_created_at,)) = oldest_challenge {
+            let window_end = oldest_created_at + Duration::minutes(RATE_LIMIT_WINDOW_MINUTES);
+            let now = Utc::now();
+            if window_end > now {
+                (window_end - now).num_seconds().max(1) as u64
+            } else {
+                1 // Already past window, retry after 1 second
+            }
+        } else {
+            // Fallback: retry after full window
+            (RATE_LIMIT_WINDOW_MINUTES * 60) as u64
+        };
+
+        Ok(RateLimitResult {
+            exceeded: true,
+            retry_after,
+        })
+    } else {
+        Ok(RateLimitResult {
+            exceeded: false,
+            retry_after: 0,
+        })
+    }
+}
+
 /// POST /api/v1/identity/challenge
 ///
 /// Creates a new challenge for DID binding.
 /// The client must sign this challenge with their private key
 /// and submit the signature to the /bind endpoint.
+///
+/// Rate limited to 5 challenges per user per hour.
 async fn create_challenge(
     State(pool): State<PgPool>,
     Json(request): Json<CreateChallengeRequest>,
 ) -> Result<Json<ChallengeResponse>, AppError> {
+    // Check rate limit
+    let rate_limit = check_challenge_rate_limit(&pool, request.user_id).await?;
+    if rate_limit.exceeded {
+        return Err(AppError::TooManyRequests {
+            message: format!(
+                "Rate limit exceeded: maximum {} challenges per hour",
+                MAX_CHALLENGES_PER_HOUR
+            ),
+            retry_after: rate_limit.retry_after,
+        });
+    }
+
     let challenge = generate_challenge();
     let expires_at = Utc::now() + Duration::minutes(CHALLENGE_EXPIRY_MINUTES);
 
@@ -418,5 +513,29 @@ mod tests {
         let invalid_hex = "zzzz";
         let result = hex::decode(invalid_hex);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_rate_limit_constants() {
+        // Verify rate limit configuration
+        assert_eq!(MAX_CHALLENGES_PER_HOUR, 5);
+        assert_eq!(RATE_LIMIT_WINDOW_MINUTES, 60);
+    }
+
+    #[test]
+    fn test_rate_limit_result_struct() {
+        let result = RateLimitResult {
+            exceeded: true,
+            retry_after: 3600,
+        };
+        assert!(result.exceeded);
+        assert_eq!(result.retry_after, 3600);
+
+        let result = RateLimitResult {
+            exceeded: false,
+            retry_after: 0,
+        };
+        assert!(!result.exceeded);
+        assert_eq!(result.retry_after, 0);
     }
 }
