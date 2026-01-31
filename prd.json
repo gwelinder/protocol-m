@@ -550,8 +550,8 @@
         "Typecheck passes"
       ],
       "priority": 33,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Signature verification deferred to US-005C"
     },
     {
       "id": "US-005C",

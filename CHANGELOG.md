@@ -42,11 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-004B: Implemented manifest export logic (export_manifest function with 5 unit tests)
 - US-004C: Implemented manifest export command (--output flag, --path args, directory scanning)
 
-#### Attribution Database (US-005A) — Server Layer
+#### Attribution Database (US-005A to US-005B) — Server Layer
 - US-005A: Created openclaw-server crate with axum 0.8, sqlx 0.8, PostgreSQL
 - US-005A: Created artifacts table migration with UUID PK, hash, DID, timestamp, metadata (JSONB), signature
 - US-005A: Added database pool creation and migration runner
 - US-005A: Defined Artifact and NewArtifact model types with sqlx FromRow
+- US-005B: Implemented POST /api/v1/artifacts endpoint for artifact registration
+- US-005B: Added routes module with router setup and artifacts handler
+- US-005B: Parse SignatureEnvelopeV1, extract fields, insert into database, return ID and URL
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
