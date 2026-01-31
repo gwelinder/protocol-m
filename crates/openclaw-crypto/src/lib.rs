@@ -8,7 +8,7 @@ pub mod sign;
 pub mod types;
 pub mod verify;
 
-pub use did::pubkey_to_did;
+pub use did::{did_to_verifying_key, pubkey_to_did};
 pub use hash::sha256_hex;
 pub use jcs::jcs_canonical_bytes;
 pub use keys::generate_keypair;

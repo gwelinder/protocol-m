@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-002E: Implemented signature output in dry-run mode (JSON to stdout)
 - US-002F: Added signing roundtrip tests (4 tests: basic, metadata, tamper detection, different keys)
 - US-003A: Implemented envelope verification logic (verify_artifact function with 9 unit tests)
+- US-003B: Implemented DID to public key extraction (did_to_verifying_key function with 6 unit tests)
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation
