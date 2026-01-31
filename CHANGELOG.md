@@ -168,7 +168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Escape key and backdrop click to close modal
   - Updated PostCard to pass signatureEnvelope to VerifiedBadge
 
-#### M-Credits Economy (US-012A to US-012B) — Token Accounts & Ledger
+#### M-Credits Economy (US-012A to US-012C) — Token Accounts, Ledger & Invoices
 - US-012A: Created m_credits_accounts table migration:
   - NUMERIC(20,8) for precise decimal handling (up to 999B credits with 8 decimal places)
   - Unique constraint on DID (one account per identity)
@@ -191,6 +191,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - MCreditsEventType enum with serde and sqlx serialization
   - NewMCreditsLedger with factory methods (mint, burn, transfer, hold, release)
   - 7 unit tests for event type serialization and factory methods
+- US-012C: Created purchase_invoices table migration:
+  - payment_provider enum (stripe, usdc, apple_pay, manual)
+  - invoice_status enum (pending, completed, failed)
+  - NUMERIC(10,2) for USD amounts, NUMERIC(20,8) for credits
+  - Indexes on user_id, status, created_at, external_ref
+  - Automatic updated_at trigger for tracking state changes
+- US-012C: Implemented PurchaseInvoice model with:
+  - PaymentProvider and InvoiceStatus enums with serde/sqlx mapping
+  - Status helper methods (is_pending, is_completed, is_failed)
+  - NewPurchaseInvoice for creating new invoice records
+  - 6 unit tests for serialization and status helpers
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

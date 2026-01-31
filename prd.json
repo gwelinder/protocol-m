@@ -957,8 +957,8 @@
         "Typecheck passes"
       ],
       "priority": 58,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000009 with payment_provider enum (stripe, usdc, apple_pay, manual), invoice_status enum (pending, completed, failed), NUMERIC fields for USD (10,2) and credits (20,8), updated_at trigger; PurchaseInvoice/NewPurchaseInvoice models with status helpers; 6 unit tests; 175 tests pass"
     },
     {
       "id": "US-012D",
