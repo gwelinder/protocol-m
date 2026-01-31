@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-001O: Created golden test vector fixture (fixtures/golden_vectors.json with seed, DID, envelope, canonical JCS, signature)
 - US-001P: Added integration test for golden vector (tests/golden.rs with 6 validation tests)
 - US-002A: Implemented envelope signing logic (sign_artifact function in sign.rs)
+- US-002B: Added metadata parsing for --meta flag (parse_metadata with dot notation support)
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
 - Moltbook integration documentation

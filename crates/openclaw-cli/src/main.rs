@@ -1,6 +1,7 @@
 // OpenClaw CLI - Command-line interface for Protocol M
 
 mod keystore;
+pub mod metadata;
 
 use clap::{Parser, Subcommand};
 
