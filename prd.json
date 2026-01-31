@@ -1277,8 +1277,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 77,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added search input, filter dropdowns (closure type, reward range, deadline), sort options (newest, highest reward, ending soon); filters persist in URL query params using useSearchParams/useRouter; stats bar updates to show filtered count; empty state for no matches with clear button; typecheck passes"
     },
     {
       "id": "US-016D",

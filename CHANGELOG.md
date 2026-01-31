@@ -403,6 +403,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Loading, error, and empty states
   - Mock data for development (5 sample bounties)
   - TypeScript typecheck passes
+- US-016C: Added bounty marketplace filters and sorting:
+  - Search input for filtering by title/description
+  - Filter dropdowns: closure type (tests/quorum/requester), reward range (0-100/100-500/500-1000/1000+), deadline (today/week/month/no deadline)
+  - Sort options: newest first, highest reward, ending soon
+  - URL query param persistence using useSearchParams/useRouter
+  - Stats bar updates to show filtered count vs total
+  - Empty state for no matching bounties with clear filters button
+  - Clear all filters button when filters are active
+  - TypeScript typecheck passes
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

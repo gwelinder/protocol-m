@@ -1008,3 +1008,18 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - Stats bar shows summary metrics: open bounty count and total rewards available
   - TypeScript typecheck passes in web/ directory
 ---
+
+## 2026-01-31 - US-016C
+- What was implemented: Bounty marketplace filters and sorting functionality
+- Files changed:
+  - `web/src/app/marketplace/page.tsx` - Added search input, filter dropdowns (closure type, reward range, deadline), sort options, URL param persistence
+- **Learnings for future iterations:**
+  - Use useSearchParams and useRouter from next/navigation for URL query param management
+  - Pattern: initialize state from URL params, update URL when state changes
+  - Keep default values out of URL (e.g., 'newest' sort is default, so don't add sort=newest to URL)
+  - Use useMemo for filtered/sorted results to avoid recomputing on every render
+  - Use useCallback for filter handlers to prevent unnecessary re-renders
+  - Stats bar should update to show "Showing: X of Y" when filters active
+  - Add empty state specifically for "no matches" with clear filters button
+  - TypeScript typecheck passes in web/ directory
+---
