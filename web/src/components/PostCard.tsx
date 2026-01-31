@@ -1,6 +1,7 @@
 'use client'
 
 import { VerifiedBadge, VerificationStatus } from './VerifiedBadge'
+import { SignatureEnvelope } from './SignatureModal'
 import { formatTimestamp } from '@/lib/utils'
 
 export interface PostCardProps {
@@ -20,6 +21,8 @@ export interface PostCardProps {
   verificationStatus: VerificationStatus
   /** The DID that signed this post (if verified) */
   verifiedDid?: string | null
+  /** The signature envelope JSON (for viewing in modal) */
+  signatureEnvelope?: SignatureEnvelope | null
   /** Number of upvotes */
   upvotes?: number
   /** Number of comments */
@@ -46,6 +49,7 @@ export function PostCard({
   createdAt,
   verificationStatus,
   verifiedDid,
+  signatureEnvelope,
   upvotes = 0,
   commentCount = 0,
   hasUpvoted = false,
@@ -134,6 +138,7 @@ export function PostCard({
             <VerifiedBadge
               status={verificationStatus}
               verifiedDid={verifiedDid}
+              signatureEnvelope={signatureEnvelope}
             />
           </div>
 

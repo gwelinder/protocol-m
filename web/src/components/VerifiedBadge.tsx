@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { truncateDid } from '@/lib/utils'
+import { SignatureModal, SignatureEnvelope } from './SignatureModal'
 
 /** Verification status enum matching the server-side VerificationStatus */
 export type VerificationStatus = 'none' | 'invalid' | 'valid_unbound' | 'valid_bound'
@@ -11,6 +12,8 @@ export interface VerifiedBadgeProps {
   status: VerificationStatus
   /** The DID of the signer (required for valid_unbound and valid_bound statuses) */
   verifiedDid?: string | null
+  /** The signature envelope (required for modal display) */
+  signatureEnvelope?: SignatureEnvelope | null
 }
 
 /**
@@ -20,9 +23,11 @@ export interface VerifiedBadgeProps {
  * - none/invalid: Renders nothing
  *
  * Includes hover tooltip showing the signer DID.
+ * Clicking opens the SignatureModal to view the full envelope.
  */
-export function VerifiedBadge({ status, verifiedDid }: VerifiedBadgeProps) {
+export function VerifiedBadge({ status, verifiedDid, signatureEnvelope }: VerifiedBadgeProps) {
   const [showTooltip, setShowTooltip] = useState(false)
+  const [showModal, setShowModal] = useState(false)
 
   // Don't render anything for none or invalid status
   if (status === 'none' || status === 'invalid') {
@@ -31,8 +36,17 @@ export function VerifiedBadge({ status, verifiedDid }: VerifiedBadgeProps) {
 
   const isValidBound = status === 'valid_bound'
   const truncatedDid = verifiedDid ? truncateDid(verifiedDid) : null
+  const isClickable = signatureEnvelope != null
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (signatureEnvelope) {
+      e.stopPropagation()
+      setShowModal(true)
+    }
+  }
 
   return (
+    <>
     <div
       style={{
         display: 'inline-flex',
@@ -44,8 +58,9 @@ export function VerifiedBadge({ status, verifiedDid }: VerifiedBadgeProps) {
         fontSize: '12px',
         fontWeight: 500,
         position: 'relative',
-        cursor: verifiedDid ? 'pointer' : 'default',
+        cursor: isClickable ? 'pointer' : 'default',
       }}
+      onClick={handleClick}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
       role="status"
@@ -117,6 +132,14 @@ export function VerifiedBadge({ status, verifiedDid }: VerifiedBadgeProps) {
         </div>
       )}
     </div>
+
+    {/* Signature envelope modal */}
+    <SignatureModal
+      isOpen={showModal}
+      onClose={() => setShowModal(false)}
+      envelope={signatureEnvelope ?? null}
+    />
+    </>
   )
 }
 
