@@ -809,8 +809,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 49,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created ProfileIdentities component in web/src/components/ProfileIdentities.tsx with expand/collapse, empty state, and Bind DID button; added profile page at /profile/[userId] and bind-identity instructions page; typecheck passes"
     },
     {
       "id": "US-010A",

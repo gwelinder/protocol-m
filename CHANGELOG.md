@@ -105,13 +105,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - US-008G: Tests marked #[ignore] requiring PostgreSQL database
 - US-008G: Run with: `cargo test --test did_binding_integration -- --ignored`
 
-#### User Profile DID Integration (US-009A to US-009B) — Profile Query & UI
+#### User Profile DID Integration (US-009A to US-009C) — Profile Query & UI
 - US-009A: Created GET /api/v1/profile/{user_id}/dids endpoint for retrieving bound DIDs
 - US-009A: Returns array of BoundDid objects with did and createdAt fields
 - US-009A: Filters revoked bindings (WHERE revoked_at IS NULL)
 - US-009A: Orders by created_at DESC (newest first)
 
-#### Frontend UI Components (US-009B) — React/Next.js
+#### Frontend UI Components (US-009B to US-009C) — React/Next.js
 - US-009B: Created Next.js frontend scaffold (web/ directory with TypeScript)
 - US-009B: Implemented IdentityBadge component with:
   - Middle truncation (did:key:z6Mk...Wp format)
@@ -120,6 +120,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Binding timestamp display
 - US-009B: Added utility functions (truncateDid, formatTimestamp, copyToClipboard)
 - US-009B: TypeScript typecheck passes
+- US-009C: Created ProfileIdentities component with:
+  - IdentityBadge integration for all bound DIDs
+  - Expand/collapse for 5+ DIDs (configurable maxVisible)
+  - Empty state with "No identity bound" message
+  - "Bind DID" button linking to instructions
+- US-009C: Created profile page at /profile/[userId]
+- US-009C: Created bind-identity instructions page at /bind-identity
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
