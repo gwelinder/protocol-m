@@ -941,8 +941,8 @@
         "Typecheck passes"
       ],
       "priority": 57,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created migration 20260131000008 with m_credits_event_type enum, NUMERIC(20,8) amount, from_did/to_did, metadata JSONB; MCreditsLedger/NewMCreditsLedger models with factory methods; 7 unit tests; 169 tests pass"
     },
     {
       "id": "US-012C",

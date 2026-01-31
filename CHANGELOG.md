@@ -168,7 +168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Escape key and backdrop click to close modal
   - Updated PostCard to pass signatureEnvelope to VerifiedBadge
 
-#### M-Credits Economy (US-012A) — Token Accounts
+#### M-Credits Economy (US-012A to US-012B) — Token Accounts & Ledger
 - US-012A: Created m_credits_accounts table migration:
   - NUMERIC(20,8) for precise decimal handling (up to 999B credits with 8 decimal places)
   - Unique constraint on DID (one account per identity)
@@ -180,6 +180,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - has_sufficient_balance() check for payment authorization
   - NewMCreditsAccount with zero-default balances
   - 4 unit tests for balance calculations
+- US-012B: Created m_credits_ledger table migration for event sourcing:
+  - m_credits_event_type enum (mint, burn, transfer, hold, release)
+  - NUMERIC(20,8) amount field with positive constraint
+  - from_did and to_did fields for transaction parties
+  - metadata JSONB for flexible transaction context
+  - Indexes on event_type, from_did, to_did, created_at for efficient queries
+  - Composite index for DID history queries
+- US-012B: Implemented MCreditsLedger model with:
+  - MCreditsEventType enum with serde and sqlx serialization
+  - NewMCreditsLedger with factory methods (mint, burn, transfer, hold, release)
+  - 7 unit tests for event type serialization and factory methods
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation
