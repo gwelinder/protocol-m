@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::models::artifact::{Artifact, NewArtifact};
+use crate::models::artifact_derivation::NewArtifactDerivation;
 use openclaw_crypto::{did_to_verifying_key, SignatureEnvelopeV1};
 
 /// Maximum metadata size in bytes (10KB).
@@ -64,6 +65,11 @@ async fn register_artifact(
 
     // Insert into the database
     let artifact = insert_artifact(&pool, id, &new_artifact).await?;
+
+    // Step 4: Process derivations (metadata.derivedFrom field)
+    if let Some(ref metadata) = envelope.metadata {
+        process_derivations(&pool, artifact.id, metadata).await?;
+    }
 
     Ok(Json(RegisterArtifactResponse {
         id: artifact.id,
@@ -224,6 +230,111 @@ async fn insert_artifact(
     .await?;
 
     Ok(row)
+}
+
+/// Processes derivation relationships from the metadata.derivedFrom field.
+/// If derivedFrom contains artifact IDs, validates they exist and creates derivation records.
+async fn process_derivations(
+    pool: &PgPool,
+    artifact_id: Uuid,
+    metadata: &serde_json::Value,
+) -> Result<(), AppError> {
+    // Check for derivedFrom field in metadata
+    let derived_from = match metadata.get("derivedFrom") {
+        Some(value) => value,
+        None => return Ok(()), // No derivations to process
+    };
+
+    // derivedFrom can be a single string (artifact ID or hash) or an array
+    let parent_refs: Vec<&str> = match derived_from {
+        serde_json::Value::String(s) => vec![s.as_str()],
+        serde_json::Value::Array(arr) => {
+            arr.iter()
+                .filter_map(|v| v.as_str())
+                .collect()
+        }
+        _ => {
+            return Err(AppError::BadRequest(
+                "derivedFrom must be a string or array of strings".to_string(),
+            ));
+        }
+    };
+
+    if parent_refs.is_empty() {
+        return Ok(());
+    }
+
+    // Validate and resolve all parent references
+    for parent_ref in parent_refs {
+        let parent_id = resolve_artifact_reference(pool, parent_ref).await?;
+
+        // Note: Cycle detection is handled in US-006C
+        // For now, just insert the derivation
+        insert_derivation(pool, artifact_id, parent_id).await?;
+    }
+
+    Ok(())
+}
+
+/// Resolves an artifact reference (UUID or hash) to an artifact ID.
+/// Returns an error if the referenced artifact doesn't exist.
+async fn resolve_artifact_reference(pool: &PgPool, reference: &str) -> Result<Uuid, AppError> {
+    // First, try to parse as UUID
+    if let Ok(uuid) = Uuid::parse_str(reference) {
+        // Check if artifact with this ID exists
+        let exists: Option<(Uuid,)> = sqlx::query_as(
+            "SELECT id FROM artifacts WHERE id = $1 LIMIT 1",
+        )
+        .bind(uuid)
+        .fetch_optional(pool)
+        .await?;
+
+        if exists.is_some() {
+            return Ok(uuid);
+        }
+    }
+
+    // If not a valid UUID or doesn't exist as ID, try to look up by hash
+    let result: Option<(Uuid,)> = sqlx::query_as(
+        "SELECT id FROM artifacts WHERE hash = $1 LIMIT 1",
+    )
+    .bind(reference)
+    .fetch_optional(pool)
+    .await?;
+
+    match result {
+        Some((id,)) => Ok(id),
+        None => Err(AppError::BadRequest(format!(
+            "Parent artifact not found: '{}'",
+            reference
+        ))),
+    }
+}
+
+/// Inserts a derivation record linking an artifact to its parent.
+async fn insert_derivation(
+    pool: &PgPool,
+    artifact_id: Uuid,
+    derived_from_id: Uuid,
+) -> Result<(), AppError> {
+    let derivation = NewArtifactDerivation {
+        artifact_id,
+        derived_from_id,
+    };
+
+    sqlx::query(
+        r#"
+        INSERT INTO artifact_derivations (artifact_id, derived_from_id)
+        VALUES ($1, $2)
+        ON CONFLICT (artifact_id, derived_from_id) DO NOTHING
+        "#,
+    )
+    .bind(derivation.artifact_id)
+    .bind(derivation.derived_from_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -432,5 +543,88 @@ mod tests {
         let err_msg = format!("{:?}", result);
         assert!(err_msg.contains("Signature verification failed"));
         assert!(!err_msg.contains("Invalid envelope type"));
+    }
+
+    // Tests for derivation parsing from metadata
+    #[test]
+    fn test_parse_derived_from_string() {
+        let metadata = serde_json::json!({
+            "derivedFrom": "550e8400-e29b-41d4-a716-446655440000"
+        });
+
+        let derived_from = metadata.get("derivedFrom").unwrap();
+        let parent_refs: Vec<&str> = match derived_from {
+            serde_json::Value::String(s) => vec![s.as_str()],
+            _ => vec![],
+        };
+
+        assert_eq!(parent_refs.len(), 1);
+        assert_eq!(parent_refs[0], "550e8400-e29b-41d4-a716-446655440000");
+    }
+
+    #[test]
+    fn test_parse_derived_from_array() {
+        let metadata = serde_json::json!({
+            "derivedFrom": [
+                "550e8400-e29b-41d4-a716-446655440000",
+                "550e8400-e29b-41d4-a716-446655440001"
+            ]
+        });
+
+        let derived_from = metadata.get("derivedFrom").unwrap();
+        let parent_refs: Vec<&str> = match derived_from {
+            serde_json::Value::Array(arr) => {
+                arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .collect()
+            }
+            _ => vec![],
+        };
+
+        assert_eq!(parent_refs.len(), 2);
+        assert_eq!(parent_refs[0], "550e8400-e29b-41d4-a716-446655440000");
+        assert_eq!(parent_refs[1], "550e8400-e29b-41d4-a716-446655440001");
+    }
+
+    #[test]
+    fn test_parse_derived_from_empty_array() {
+        let metadata = serde_json::json!({
+            "derivedFrom": []
+        });
+
+        let derived_from = metadata.get("derivedFrom").unwrap();
+        let parent_refs: Vec<&str> = match derived_from {
+            serde_json::Value::Array(arr) => {
+                arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .collect()
+            }
+            _ => vec![],
+        };
+
+        assert!(parent_refs.is_empty());
+    }
+
+    #[test]
+    fn test_parse_derived_from_missing() {
+        let metadata = serde_json::json!({
+            "author": "test"
+        });
+
+        let derived_from = metadata.get("derivedFrom");
+        assert!(derived_from.is_none());
+    }
+
+    #[test]
+    fn test_parse_derived_from_with_hash() {
+        let metadata = serde_json::json!({
+            "derivedFrom": "abc123def456abc123def456abc123def456abc123def456abc123def456abc1"
+        });
+
+        let derived_from = metadata.get("derivedFrom").unwrap();
+        let parent_ref = derived_from.as_str().unwrap();
+
+        // 64 character hex string (SHA-256 hash)
+        assert_eq!(parent_ref.len(), 64);
     }
 }
