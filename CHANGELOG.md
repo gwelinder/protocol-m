@@ -496,6 +496,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CreateBountyResponse now includes approval_request_id field
   - Notification placeholder using tracing::info (production would send email/webhook/Slack)
   - 10 new unit tests, 429 total tests pass
+- US-018C: Implemented approval command for operators:
+  - Added `openclaw approve <request_id>` CLI command with --server and --yes flags
+  - Created routes/approvals.rs with GET /{id} and POST /{id}/approve endpoints
+  - GET endpoint returns approval request details with bounty info for review
+  - POST endpoint validates operator DID, checks pending status and expiry
+  - Creates escrow hold and updates bounty status to open on approval
+  - Added ureq (HTTP client) and uuid dependencies to CLI crate
+  - 10 new unit tests for approvals routes, 438 total tests pass
 
 - Project scaffolding and fixtures directory
 - Golden test vector for CI validation

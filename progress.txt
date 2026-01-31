@@ -1162,3 +1162,21 @@ This file tracks autonomous agent iterations implementing Protocol M.
   - 10 new unit tests for policy approval logic
   - 429 total tests pass (429 server + 5 ignored integration tests)
 ---
+
+## 2026-01-31 - US-018C
+- What was implemented: Approval command for operators to grant approval
+- Files changed:
+  - `crates/openclaw-cli/Cargo.toml` - Added ureq (HTTP client) and uuid dependencies
+  - `crates/openclaw-cli/src/main.rs` - Added Approve command with request_id, --server, --yes flags; added ApprovalRequestResponse, BountyDetails, ApproveRequest, ApproveApiResponse structs; implemented handle_approve function
+  - `crates/openclaw-server/src/routes/approvals.rs` - New routes module with GET /{id} and POST /{id}/approve endpoints
+  - `crates/openclaw-server/src/routes/mod.rs` - Added approvals module and /approvals route nesting
+- **Learnings for future iterations:**
+  - Use ureq crate for simple synchronous HTTP requests from CLI (lighter than reqwest)
+  - CLI approval flow: fetch details → verify operator DID → display → confirm → POST approve
+  - Server approval endpoint: load request → verify operator → check pending/expiry → create escrow → update bounty → mark approved
+  - The --yes flag skips confirmation prompt for scripted/automated approvals
+  - BountyDetails struct provides bounty info in approval request response for operator review
+  - Use .as_ref().map() instead of .map() when you need to borrow Optional values without moving
+  - EscrowStatus::Held must be used directly in SQL bind (NewEscrowHold doesn't have status field)
+  - 10 new approvals tests; 438 total tests pass
+---
