@@ -7,25 +7,24 @@
   "file_bytes_utf8": "hello world\n",
   "file_size": 12,
   "sha256_hex": "a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447",
-  "created_at": "2026-01-30T00:00:00Z",
+  "timestamp": "2026-01-30T00:00:00Z",
   "artifact_name": "hello.txt",
   "envelope": {
-    "version": "m1",
-    "type": "artifact_signature",
+    "version": "1.0",
+    "type": "signature-envelope",
     "algo": "ed25519",
-    "did": "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw",
+    "signer": "did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw",
+    "timestamp": "2026-01-30T00:00:00Z",
     "hash": {
-      "algo": "sha256",
+      "algo": "sha-256",
       "value": "a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447"
     },
     "artifact": {
       "name": "hello.txt",
       "size": 12
     },
-    "createdAt": "2026-01-30T00:00:00Z",
-    "metadata": {},
-    "signature": "c7rSjOQf44/8l6+TqMSB1NYprlhsEwLoY+0IhJVzA/PP+QQkHN+qXXndMthL3CeMTZQVqYuPdEy9O1kjCCk5Aw=="
+    "signature": "9tLraZlxpEKmIXc1CrG7PD5zbzxaKtOszC8+aVX2sSpIQ2bLb1SCSX/sV6ZpNt3ybeNp4RoQd7XpsjeLewKAAA=="
   },
-  "canonical_jcs": "{\"algo\":\"ed25519\",\"artifact\":{\"name\":\"hello.txt\",\"size\":12},\"createdAt\":\"2026-01-30T00:00:00Z\",\"did\":\"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw\",\"hash\":{\"algo\":\"sha256\",\"value\":\"a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447\"},\"metadata\":{},\"signature\":\"\",\"type\":\"artifact_signature\",\"version\":\"m1\"}",
-  "signature_base64": "c7rSjOQf44/8l6+TqMSB1NYprlhsEwLoY+0IhJVzA/PP+QQkHN+qXXndMthL3CeMTZQVqYuPdEy9O1kjCCk5Aw=="
+  "canonical_jcs": "{\"algo\":\"ed25519\",\"artifact\":{\"name\":\"hello.txt\",\"size\":12},\"hash\":{\"algo\":\"sha-256\",\"value\":\"a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447\"},\"signature\":\"\",\"signer\":\"did:key:z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw\",\"timestamp\":\"2026-01-30T00:00:00Z\",\"type\":\"signature-envelope\",\"version\":\"1.0\"}",
+  "signature_base64": "9tLraZlxpEKmIXc1CrG7PD5zbzxaKtOszC8+aVX2sSpIQ2bLb1SCSX/sV6ZpNt3ybeNp4RoQd7XpsjeLewKAAA=="
 }
